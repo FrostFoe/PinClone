@@ -46,11 +46,11 @@ const generateRandomPin = (id: number): Pin => {
   const randomHint = hints[randomIndex];
   
   return {
-    id: `pin-${id}`,
+    id: `pin-homepage-${id}-${Math.random().toString(16).slice(2)}`, // Ensure unique ID for homepage pins
     alt: `Pin image ${id} - ${randomHint}`,
     width: randomWidth,
     height: randomHeight,
-    placeholderId: `ph-${id}`,
+    placeholderId: `ph-homepage-${id}`,
     aiHint: randomHint,
     title: titles[randomIndex % titles.length],
     description: descriptions[randomIndex % descriptions.length],
