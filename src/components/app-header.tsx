@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton import
 import { useSidebar } from '@/components/ui/sidebar';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
@@ -44,7 +45,7 @@ export default function AppHeader() {
           .single();
         
         if (error && error.code !== 'PGRST116') { // PGRST116: no rows found, which is fine if profile not fully set up
-          console.error("Error fetching profile for header:", error);
+          // console.error("Error fetching profile for header:", error); // Keep console.error for debugging if needed
         }
         setCurrentUser(profileData as Profile | null);
       } else {
@@ -58,7 +59,7 @@ export default function AppHeader() {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
          supabase.from('profiles').select('*').eq('id', session.user.id).single().then(({data, error}) => {
-           if (error && error.code !== 'PGRST116') console.error(error); else setCurrentUser(data as Profile | null);
+           if (error && error.code !== 'PGRST116') { /* console.error(error); */ } else setCurrentUser(data as Profile | null);
          });
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
