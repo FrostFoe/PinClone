@@ -12,7 +12,7 @@
     --popover-foreground: 0 0% 3.9%;
     --primary: 350 100% 45.1%; /* #E60023 */
     --primary-foreground: 0 0% 98%; /* White text on primary */
-    --secondary: 0 0% 90%; /* Lighter gray for secondary elements */
+    --secondary: 0 0% 93.7%; /* #EFEFEF - For search bar background */
     --secondary-foreground: 0 0% 9%; /* Dark text for secondary elements */
     --muted: 0 0% 85%; /* Muted gray */
     --muted-foreground: 0 0% 40%; /* Darker muted text */
@@ -31,8 +31,18 @@
     --radius: 0.5rem; /* Consistent with Pinterest's rounded corners */
 
     /* Specific Pinclone variables */
-    --header-height: 80px;
+    --header-height: 64px; /* Adjusted header height */
     --grid-gap: 16px;
+
+    /* Sidebar specific theme variables */
+    --sidebar-background: 0 0% 100%; /* White */
+    --sidebar-foreground: 0 0% 20%; /* #333333 - Icons/text in sidebar */
+    --sidebar-accent: 0 0% 94%; /* #F0F0F0 - Hover background for non-active items */
+    --sidebar-accent-foreground: 0 0% 20%; /* #333333 - Hover foreground */
+    --sidebar-active: 0 0% 13%; /* #212121 - Active item background (e.g., Home) */
+    --sidebar-active-foreground: 0 0% 100%; /* #FFFFFF - Active item foreground */
+    --sidebar-border: 0 0% 93%; /* #EDEDED - Sidebar border if needed */
+    --sidebar-ring: 350 100% 45.1%; /* Primary red for focus ring on sidebar items */
   }
 
   .dark {
@@ -45,7 +55,7 @@
     --popover-foreground: 0 0% 95%;
     --primary: 350 100% 55.1%; /* Brighter red for dark mode */
     --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 18%;
+    --secondary: 0 0% 15%; /* Darker gray for search bar in dark mode */
     --secondary-foreground: 0 0% 95%;
     --muted: 0 0% 22%;
     --muted-foreground: 0 0% 60%;
@@ -56,6 +66,16 @@
     --border: 0 0% 25%;
     --input: 0 0% 25%;
     --ring: 350 100% 55.1%;
+
+    /* Dark Sidebar specific theme variables */
+    --sidebar-background: 0 0% 12%; 
+    --sidebar-foreground: 0 0% 85%; 
+    --sidebar-accent: 0 0% 20%; 
+    --sidebar-accent-foreground: 0 0% 85%;
+    --sidebar-active: 0 0% 95%; 
+    --sidebar-active-foreground: 0 0% 10%; 
+    --sidebar-border: 0 0% 20%; 
+    --sidebar-ring: 350 100% 55.1%;
   }
 }
 
@@ -99,3 +119,22 @@
     }
   }
 }
+
+/* Custom styles for sidebar active item to exactly match Pinterest */
+/* This might not be needed if sidebar.tsx is updated correctly */
+/*
+@layer components {
+  [data-sidebar='menu-button'][data-active='true'] {
+    @apply bg-sidebar-active text-sidebar-active-foreground;
+  }
+  [data-sidebar='menu-button'][data-active='true'] svg {
+    @apply text-sidebar-active-foreground;
+  }
+  [data-sidebar='menu-button']:not([data-active='true']):hover {
+    @apply bg-sidebar-accent text-sidebar-accent-foreground;
+  }
+  [data-sidebar='menu-button']:not([data-active='true']):hover svg {
+    @apply text-sidebar-accent-foreground;
+  }
+}
+*/

@@ -58,10 +58,10 @@ export default {
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
           foreground: 'hsl(var(--sidebar-foreground))',
-          primary: 'hsl(var(--sidebar-primary))',
-          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-          accent: 'hsl(var(--sidebar-accent))',
-          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+          accent: 'hsl(var(--sidebar-accent))', // For hover on non-active items
+          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))', // For hover text on non-active
+          active: 'hsl(var(--sidebar-active))', // For active item background
+          'active-foreground': 'hsl(var(--sidebar-active-foreground))', // For active item text/icon
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
@@ -70,7 +70,7 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
-        xl: 'calc(var(--radius) + 4px)', // For larger rounding like Pinterest cards
+        xl: 'calc(var(--radius) + 4px)', 
         '2xl': 'calc(var(--radius) + 8px)',
       },
       spacing: {

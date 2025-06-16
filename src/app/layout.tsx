@@ -1,5 +1,21 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Toaster } from '@/components/ui/toaster';
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarInset,
+} from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import PincloneLogo from '@/components/pinclone-logo';
+import { Home, Plus, Bell, MessageCircle, Settings, HelpCircle } from 'lucide-react';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -21,7 +37,59 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        {children}
+        <SidebarProvider defaultOpen={true}> {/* Default to expanded for desktop, icon for mobile is handled by component */}
+          <Sidebar collapsible="icon" variant="sidebar" side="left" className="border-r border-sidebar-border">
+            <SidebarHeader className="p-0 flex items-center justify-center h-[var(--header-height)]">
+              <Link href="/" aria-label="Pinclone Home">
+                <PincloneLogo />
+              </Link>
+            </SidebarHeader>
+            <SidebarContent className="p-2">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip={{ children: "Home", side: "right", align: "center" }} isActive={true}>
+                    <Home />
+                    <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Home</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip={{ children: "Create", side: "right", align: "center" }}>
+                    <Plus />
+                    <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Create</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip={{ children: "Notifications", side: "right", align: "center" }}>
+                    <Bell />
+                    <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Notifications</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip={{ children: "Messages", side: "right", align: "center" }}>
+                    <MessageCircle />
+                    <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Messages</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarContent>
+            <SidebarFooter className="p-2">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip={{ children: "Settings", side: "right", align: "center" }}>
+                    <Settings />
+                    <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Settings</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarFooter>
+          </Sidebar>
+          <SidebarInset>
+            {children}
+            <Button variant="outline" size="icon" className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-card shadow-lg z-50 hover:bg-muted" aria-label="Help">
+              <HelpCircle className="h-7 w-7" />
+            </Button>
+          </SidebarInset>
+        </SidebarProvider>
         <Toaster />
       </body>
     </html>
