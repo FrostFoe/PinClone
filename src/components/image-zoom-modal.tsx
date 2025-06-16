@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from 'next/image';
@@ -57,3 +58,7 @@ export default function ImageZoomModal({ pin, isOpen, onClose }: ImageZoomModalP
     </Dialog>
   );
 }
+
+// This component is no longer used on the homepage for showing pin details.
+// It's kept here in case you want to use a modal zoom for other images in the future.
+// If you are sure you won't need it, you can ask me to delete this file.

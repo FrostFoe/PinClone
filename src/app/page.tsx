@@ -1,27 +1,49 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import AppHeader from '@/components/app-header';
 import PinGrid from '@/components/pin-grid';
-import ImageZoomModal from '@/components/image-zoom-modal';
 import type { Pin } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PINS_PER_PAGE = 20;
 
-// Helper to generate diverse placeholder dimensions and hints
 const generateRandomPin = (id: number): Pin => {
-  const widths = [250, 300, 350, 400];
-  const heightRatios = [1.2, 1.5, 1.8, 2.0, 0.8, 0.6];
+  const widths = [250, 300, 350, 400, 450, 500];
+  const heightRatios = [1.2, 1.5, 1.8, 2.0, 0.8, 0.6, 1.0, 1.3];
   const hints = [
     'landscape nature', 'abstract art', 'city skyline', 'food photography', 
     'minimalist design', 'fashion style', 'travel destination', 'animal wildlife',
-    'interior decor', 'vintage illustration' 
+    'interior decor', 'vintage illustration', 'portrait photography', 'street art'
   ];
+  const titles = [
+    "Amazing View", "Creative Design", "Urban Exploration", "Delicious Treat", 
+    "Simple Elegance", "Style Goals", "Wanderlust Vibes", "Wild Encounters",
+    "Home Sweet Home", "Retro Charm", "Captivating Portrait", "City Canvas"
+  ];
+  const descriptions = [
+    "A stunning vista captured at the golden hour.",
+    "Innovative abstract piece that plays with color and form.",
+    "The city's heartbeat from a unique perspective.",
+    "A mouth-watering dish that's as tasty as it looks.",
+    "Less is more with this clean and modern aesthetic.",
+    "The latest trends and timeless fashion statements.",
+    "Inspiring scenes from far-off lands.",
+    "A close encounter with nature's inhabitants.",
+    "Cozy and stylish ideas for your living space.",
+    "Nostalgic artwork with a classic touch.",
+    "A powerful and expressive look into someone's soul.",
+    "The vibrant and dynamic art found on city streets."
+  ];
+  const uploaderNames = ["Alex P.", "Casey L.", "Jordan B.", "Morgan K.", "Riley S."];
+  const uploaderUsernames = ["alexpics", "casey_creates", "jb_explores", "morgank", "riley_s"];
 
+  const randomIndex = Math.floor(Math.random() * hints.length);
   const randomWidth = widths[Math.floor(Math.random() * widths.length)];
   const randomHeight = Math.round(randomWidth * heightRatios[Math.floor(Math.random() * heightRatios.length)]);
-  const randomHint = hints[Math.floor(Math.random() * hints.length)];
+  const randomHint = hints[randomIndex];
   
   return {
     id: `pin-${id}`,
@@ -30,6 +52,14 @@ const generateRandomPin = (id: number): Pin => {
     height: randomHeight,
     placeholderId: `ph-${id}`,
     aiHint: randomHint,
+    title: titles[randomIndex % titles.length],
+    description: descriptions[randomIndex % descriptions.length],
+    likes: Math.floor(Math.random() * 1000),
+    uploader: {
+      name: uploaderNames[id % uploaderNames.length],
+      avatarUrl: `https://placehold.co/40x40.png?text=${uploaderNames[id % uploaderNames.length][0]}`,
+      username: uploaderUsernames[id % uploaderUsernames.length],
+    },
   };
 };
 
@@ -48,11 +78,11 @@ const fetchPins = async (page: number): Promise<Pin[]> => {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const [pins, setPins] = useState<Pin[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
   const loadMorePins = useCallback(async () => {
@@ -79,7 +109,7 @@ export default function HomePage() {
           loadMorePins();
         }
       },
-      { threshold: 1.0 } // Trigger when 100% of the loader is visible
+      { threshold: 1.0 } 
     );
 
     const currentLoaderRef = loaderRef.current;
@@ -95,11 +125,7 @@ export default function HomePage() {
   }, [loadMorePins]);
 
   const handlePinClick = (pin: Pin) => {
-    setSelectedPin(pin);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedPin(null);
+    router.push(`/pin/${pin.id}`);
   };
 
   return (
@@ -121,7 +147,6 @@ export default function HomePage() {
           <p className="text-center text-muted-foreground py-8">You've reached the end!</p>
         )}
       </main>
-      <ImageZoomModal pin={selectedPin} isOpen={!!selectedPin} onClose={handleCloseModal} />
     </div>
   );
 }
