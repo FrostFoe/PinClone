@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Search, Bell, MessageCircle, ChevronDown } from 'lucide-react';
@@ -23,7 +24,7 @@ export default function AppHeader() {
             <Input
               type="search"
               placeholder="Search"
-              className="w-full h-12 pl-12 pr-4 rounded-3xl bg-secondary border-transparent focus:bg-gray-200 dark:focus:bg-gray-700 transition-colors focus:border-input"
+              className="w-full h-12 pl-12 pr-4 rounded-3xl bg-secondary border-transparent focus:border-transparent"
               aria-label="Search Pinclone"
             />
           </div>
@@ -48,7 +49,7 @@ export default function AppHeader() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64 mt-2">
               <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5">Currently in</DropdownMenuLabel>
-              <div className="flex items-center gap-3 p-2 hover:bg-accent rounded-md mx-1 cursor-pointer">
+              <div className="flex items-center gap-3 p-2 hover:bg-accent/50 dark:hover:bg-accent rounded-md mx-1 cursor-pointer">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src="https://placehold.co/40x40.png" alt="User Profile" data-ai-hint="profile avatar large" />
                   <AvatarFallback>U</AvatarFallback>

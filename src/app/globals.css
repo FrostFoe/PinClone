@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -119,22 +120,3 @@
     }
   }
 }
-
-/* Custom styles for sidebar active item to exactly match Pinterest */
-/* This might not be needed if sidebar.tsx is updated correctly */
-/*
-@layer components {
-  [data-sidebar='menu-button'][data-active='true'] {
-    @apply bg-sidebar-active text-sidebar-active-foreground;
-  }
-  [data-sidebar='menu-button'][data-active='true'] svg {
-    @apply text-sidebar-active-foreground;
-  }
-  [data-sidebar='menu-button']:not([data-active='true']):hover {
-    @apply bg-sidebar-accent text-sidebar-accent-foreground;
-  }
-  [data-sidebar='menu-button']:not([data-active='true']):hover svg {
-    @apply text-sidebar-accent-foreground;
-  }
-}
-*/
