@@ -2,7 +2,7 @@
 'use client';
 
 import type { Pin, Uploader } from '@/types';
-import { useEffect, useState, useCallback }_from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -140,7 +140,7 @@ export default function PinDetailPage() {
   const [pinDetail, setPinDetail] = useState<Pin | null>(null);
   const [relatedPins, setRelatedPins] = useState<Pin[]>([]);
   const [isLoadingPin, setIsLoadingPin] = useState(true);
-  const [isLoadingRelated, setIsLoadingRelated] = useState(true);
+  const [isLoadingRelated, setIsLoadingRelated] = useState(true); // Changed initial state
   const [relatedPage, setRelatedPage] = useState(0);
   const [hasMoreRelated, setHasMoreRelated] = useState(true);
   const loaderRef = useRef<HTMLDivElement | null>(null);
@@ -156,7 +156,9 @@ export default function PinDetailPage() {
   }, [pinId]);
 
   const loadMoreRelatedPins = useCallback(async () => {
-    if (isLoadingRelated || !hasMoreRelated || !pinId) return;
+    if (isLoadingRelated && relatedPage !== 0) return; // Prevent multiple loads if already loading, unless initial
+    if (!hasMoreRelated || !pinId) return;
+    
     setIsLoadingRelated(true);
     const newPins = await fetchRelatedPins(pinId, relatedPage);
     if (newPins.length > 0) {
@@ -175,16 +177,18 @@ export default function PinDetailPage() {
       setRelatedPins([]);
       setRelatedPage(0);
       setHasMoreRelated(true);
+      setIsLoadingRelated(true); // Set to true before initial load
       // Initial load for related pins
       loadMoreRelatedPins();
     }
-  }, [pinId, loadMoreRelatedPins]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinId]); // Removed loadMoreRelatedPins from deps to avoid re-triggering on its own change
 
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0].isIntersecting && hasMoreRelated && !isLoadingRelated) {
           loadMoreRelatedPins();
         }
       },
@@ -201,23 +205,46 @@ export default function PinDetailPage() {
         observer.unobserve(currentLoaderRef);
       }
     };
-  }, [loadMoreRelatedPins]);
+  }, [loadMoreRelatedPins, hasMoreRelated, isLoadingRelated]);
 
 
   if (isLoadingPin) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <div className="mx-auto my-8 w-full max-w-4xl lg:max-w-5xl p-4">
-          <Skeleton className="h-12 w-full mb-4" />
-          <div className="flex flex-col lg:flex-row gap-8">
-            <Skeleton className="lg:w-1/2 h-[60vh] rounded-2xl" />
+          {/* Simplified Skeleton for header bar */}
+          <Skeleton className="h-14 w-full mb-4 rounded-t-2xl" /> 
+          <div className="flex flex-col lg:flex-row gap-8 p-4 sm:p-6 md:p-8 lg:p-0"> {/* Added padding for smaller screens, removed for lg */}
+            <Skeleton className="lg:w-1/2 h-[50vh] sm:h-[60vh] rounded-2xl" />
             <div className="lg:w-1/2 space-y-4">
               <Skeleton className="h-8 w-3/4" />
               <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-10 w-1/2" />
-              <Skeleton className="h-24 w-full" />
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                 <Skeleton className="h-9 w-20 ml-auto rounded-full" />
+              </div>
+              <Skeleton className="h-10 w-full mt-4" /> {/* Comments title placeholder */}
+              <div className="flex items-center gap-3">
+                 <Skeleton className="h-10 w-10 rounded-full" />
+                 <Skeleton className="h-10 flex-1 rounded-full" />
+              </div>
             </div>
           </div>
+        </div>
+        {/* Skeleton for "More like this" */}
+        <div className="mt-10 sm:mt-16 container mx-auto px-2 sm:px-4">
+            <Skeleton className="h-8 w-1/3 mx-auto mb-6" />
+            <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap">
+              {[...Array(5)].map((_, i) => (
+                <div key={`skeleton-related-loading-${i}`} className="break-inside-avoid mb-grid-gap">
+                  <Skeleton className={`w-full h-[${150 + Math.random() * 150}px] rounded-2xl`} />
+                </div>
+              ))}
+            </div>
         </div>
       </div>
     );
@@ -238,9 +265,9 @@ export default function PinDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       <main className="pb-12">
-        <div className="bg-card rounded-2xl shadow-xl mx-auto my-4 sm:my-8 w-[calc(100%-2rem)] sm:w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl flex flex-col">
+        <div className="bg-card rounded-b-2xl sm:rounded-2xl shadow-xl mx-auto my-0 sm:my-8 w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl flex flex-col">
           {/* Top action bar */}
-          <div className="p-3 sm:p-4 flex items-center justify-between border-b">
+          <div className="p-3 sm:p-4 flex items-center justify-between border-b sticky top-0 sm:relative bg-card rounded-t-2xl z-10">
             <div className="flex items-center gap-1 sm:gap-2">
               <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back">
                 <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -264,7 +291,7 @@ export default function PinDetailPage() {
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="px-2 sm:px-3 py-1 sm:py-1.5 h-auto text-xs sm:text-sm hidden md:flex">
+                  <Button variant="ghost" className="px-2 sm:px-3 py-1 sm:py-1.5 h-auto text-xs sm:text-sm hidden md:flex items-center">
                     Profile <ChevronDown className="ml-1 h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -280,7 +307,7 @@ export default function PinDetailPage() {
           {/* Main content: image and details */}
           <div className="flex flex-col lg:flex-row p-3 sm:p-4 md:p-6 lg:p-8 gap-4 md:gap-6 lg:gap-8">
             {/* Left: Image */}
-            <div className="lg:w-1/2 bg-muted rounded-2xl flex justify-center items-center p-2 relative aspect-[${pinDetail.width}/${pinDetail.height}] max-h-[80vh]">
+            <div className={`lg:w-1/2 bg-muted rounded-2xl flex justify-center items-center p-2 relative aspect-[${pinDetail.width}/${pinDetail.height}] max-h-[80vh]`}>
               <Image
                 src={`https://placehold.co/${pinDetail.width}x${pinDetail.height}.png`}
                 alt={pinDetail.alt}
@@ -309,7 +336,7 @@ export default function PinDetailPage() {
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                    <AvatarImage src={pinDetail.uploader?.avatarUrl || `https://placehold.co/40x40.png`} alt={pinDetail.uploader?.name} data-ai-hint="user avatar" />
+                    <AvatarImage src={pinDetail.uploader?.avatarUrl || `https://placehold.co/40x40.png`} alt={pinDetail.uploader?.name || 'Uploader'} data-ai-hint="user avatar" />
                     <AvatarFallback>{pinDetail.uploader?.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                   <div>
@@ -340,7 +367,7 @@ export default function PinDetailPage() {
         <div className="mt-10 sm:mt-16 container mx-auto px-2 sm:px-4">
           <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center font-headline">More like this</h2>
           <PinGrid pins={relatedPins} onPinClick={(pin) => router.push(`/pin/${pin.id}`)} />
-          {isLoadingRelated && (
+          {isLoadingRelated && relatedPins.length === 0 && ( // Show skeleton only if no pins loaded yet
              <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap">
               {[...Array(5)].map((_, i) => (
                 <div key={`skeleton-related-${i}`} className="break-inside-avoid mb-grid-gap">
@@ -353,8 +380,13 @@ export default function PinDetailPage() {
           {!hasMoreRelated && relatedPins.length > 0 && (
             <p className="text-center text-muted-foreground py-8">No more related pins to show.</p>
           )}
+           {!hasMoreRelated && relatedPins.length === 0 && !isLoadingRelated && (
+             <p className="text-center text-muted-foreground py-8">No related pins found.</p>
+           )}
         </div>
       </main>
     </div>
   );
 }
+
+    
