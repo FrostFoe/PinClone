@@ -1,18 +1,20 @@
 
 'use client';
 
-import type { Pin, Uploader } from '@/types';
+import type { Pin } from '@/types';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft,
@@ -23,111 +25,101 @@ import {
   ChevronDown,
   Maximize2,
   Search,
+  Link2,
+  Download,
+  Flag,
+  Code2,
+  Send,
+  Smile,
 } from 'lucide-react';
 import PinGrid from '@/components/pin-grid';
 import { Skeleton } from '@/components/ui/skeleton';
+import ImageZoomModal from '@/components/image-zoom-modal'; // Re-introduce for actual zoom
 
-const PINS_PER_PAGE = 15; // For "More like this"
+const PINS_PER_PAGE_RELATED = 15;
 
-// Simulated fetch function for a single pin
 const fetchPinById = async (id: string): Promise<Pin | null> => {
-  // In a real app, you'd fetch this from your backend
-  // For simulation, we'll generate one, trying to make it consistent if id is just a number
-  const numericId = parseInt(id.replace('pin-', ''), 10);
+  const numericId = parseInt(id.replace(/pin-(homepage|related|user)-/i, ''), 10);
   if (isNaN(numericId)) return null;
 
-  // Basic details, can be expanded
-  const widths = [600, 700, 800];
-  const heightRatios = [0.7, 1, 1.3, 1.5];
-   const hints = [
-    'anime art', 'cute illustration', 'meme relatable', 'chibi character', 
-    'fan art', 'digital painting', 'adorable expression', 'kawaii style',
-    'funny moments', 'sticker design'
-  ];
-  const titles = [
-    "So Cute!", "Gimme Attention", "Pwease?", "Mood.", 
-    "Relatable Content", "Sweet Face", "Tiny Friend", "Heart Melter",
-    "Just Baby Things", "Need Cuddles"
-  ];
-   const descriptions = [
-    "An absolutely adorable depiction of a popular character.",
-    "This little one just wants some love and attention.",
-    "The cutest plea you'll see all day!",
-    "Current mood: this little guy.",
-    "We've all been there, haven't we?",
-    "Look at that sweet, innocent face!",
-    "A tiny character with a huge personality.",
-    "This image is guaranteed to melt your heart.",
-    "Capturing the essence of babyhood.",
-    "Who wouldn't want to give this cutie a cuddle?"
-  ];
-  const uploaderNames = ["Shazz", "AnimeLover22", "MemeQueen", "KawaiiArtist", "FanArtCentral"];
-  const uploaderUsernames = ["shazz_uploads", "animeluv", "meme_q", "kawaii_art", "fanart_central"];
+  const hints = [ 'anime art', 'cute illustration', 'meme relatable', 'chibi character', 'fan art', 'digital painting', 'adorable expression', 'kawaii style', 'funny moments', 'sticker design', 'concept art', 'character sketch' ];
+  const titles = [ "Adorable Doodle", "Expressive Eyes", "Funny Reaction", "Chibi Cutie", "Masterpiece", "Digital Wonder", "Sweet Smile", "Kawaii Overload", "LOL Moment", "Perfect Sticker", "Imaginative World", "Quick Sketch" ];
+  const descriptions = [ "An incredibly charming anime-style illustration that brightens the day.", "This artwork features captivatingly expressive eyes that tell a story.", "A relatable and humorous meme capturing a universal feeling.", "An irresistibly cute chibi character that will melt your heart.", "A stunning piece of fan art showcasing incredible talent and dedication.", "A breathtaking digital painting with rich colors and intricate details.", "The most adorable and heartwarming smile you'll encounter today.", "An explosion of kawaii (cuteness) in this delightful artwork.", "A genuinely funny moment perfectly captured in this image.", "This design would make an amazing sticker for any collection.", "Explore a new world with this stunning piece of concept art.", "A detailed character sketch showing the artist's process." ];
+  const uploaderNames = ["Shazz", "AnimeFanatic", "MemeLord", "KawaiiDreams", "ArtCollector", "DigiPainter", "SmileMaker", "ChibiWorld", "FunnyFinds", "StickerStar", "ConceptKing", "SketchArtist"];
+  const uploaderUsernames = ["shazzy", "anime_fan_22", "meme_lord_99", "kawaii_dreams_art", "art_collector_gallery", "digi_painter_pro", "smile_maker_studio", "chibi_world_creations", "funny_finds_daily", "sticker_star_designs", "concept_king_art", "sketch_artist_folio"];
+  const avatarPlaceholders = ['SZ', 'AF', 'ML', 'KD', 'AC', 'DP', 'SM', 'CW', 'FF', 'SS', 'CK', 'SA'];
+
 
   const randomIndex = numericId % hints.length;
-  const randomWidth = widths[numericId % widths.length];
-  const randomHeight = Math.round(randomWidth * heightRatios[numericId % heightRatios.length]);
+  const baseWidth = 600 + (numericId % 5) * 50; // 600 to 800
+  const heightRatio = 0.6 + (numericId % 10) * 0.1; // 0.6 to 1.5
 
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
-        id: `pin-${numericId}`,
-        alt: `Detailed view of pin ${numericId} - ${hints[randomIndex]}`,
-        width: randomWidth,
-        height: randomHeight,
+        id: `pin-detail-${numericId}`,
+        alt: `Detailed view of pin: ${hints[randomIndex]}`,
+        width: baseWidth,
+        height: Math.round(baseWidth * heightRatio),
         placeholderId: `ph-detail-${numericId}`,
         aiHint: hints[randomIndex],
         title: titles[randomIndex],
         description: descriptions[randomIndex],
-        likes: Math.floor(Math.random() * 500) + 50, // Ensure some likes
+        likes: Math.floor(Math.random() * 1200) + 100,
         uploader: {
-          name: uploaderNames[numericId % uploaderNames.length],
-          avatarUrl: `https://placehold.co/40x40.png?text=${uploaderNames[numericId % uploaderNames.length][0]}`,
-          username: uploaderUsernames[numericId % uploaderUsernames.length],
+          name: uploaderNames[randomIndex],
+          avatarUrl: `https://placehold.co/80x80.png?text=${avatarPlaceholders[randomIndex]}`,
+          username: uploaderUsernames[randomIndex],
         },
+        tags: ['illustration', hints[randomIndex].split(' ')[0], hints[randomIndex].split(' ')[1]].filter(Boolean).slice(0,3)
       });
-    }, 300);
+    }, 400);
   });
 };
 
-// Simulated fetch for related pins (reusing homepage logic for now)
-const generateRandomRelatedPin = (id: number): Pin => {
+const generateRandomRelatedPin = (id: number, mainPinHint: string = ''): Pin => {
   const widths = [250, 300, 350, 400];
-  const heightRatios = [1.2, 1.5, 1.8, 0.8, 0.6];
-   const hints = [
-    'anime art', 'cute illustration', 'meme relatable', 'chibi character', 
-    'fan art', 'digital painting', 'adorable expression', 'kawaii style',
-    'funny moments', 'sticker design'
-  ];
-  const randomIndex = Math.floor(Math.random() * hints.length);
+  const heightRatios = [1.2, 1.5, 1.8, 0.8, 0.6, 1.0];
+  const hints = [ 'anime art', 'cute illustration', 'meme relatable', 'chibi character', 'fan art', 'digital painting', 'adorable expression', 'kawaii style', 'funny moments', 'sticker design', 'vector art', 'pixel art' ];
+  const uploaderNames = ["CommunityArtist", "CreativeSoul", "InspirationHub", "ArtSharer"];
+  const avatarPlaceholders = ['CA', 'CS', 'IH', 'AS'];
+  
+  let chosenHint = hints[Math.floor(Math.random() * hints.length)];
+  // Try to make related pins somewhat relevant
+  if (mainPinHint && Math.random() > 0.5) {
+    const mainHintWords = mainPinHint.toLowerCase().split(' ');
+    const relatedHintAttempt = hints.find(h => h.toLowerCase().split(' ').some(hw => mainHintWords.includes(hw)));
+    if (relatedHintAttempt) chosenHint = relatedHintAttempt;
+  }
+
+  const randomIndex = Math.floor(Math.random() * uploaderNames.length);
   const randomWidth = widths[Math.floor(Math.random() * widths.length)];
   const randomHeight = Math.round(randomWidth * heightRatios[Math.floor(Math.random() * heightRatios.length)]);
   
   return {
-    id: `related-pin-${id}-${Math.random().toString(36).substring(7)}`, // Ensure unique IDs
-    alt: `Related pin image ${id} - ${hints[randomIndex]}`,
+    id: `related-pin-${id}-${Math.random().toString(36).substring(7)}`,
+    alt: `Related pin: ${chosenHint}`,
     width: randomWidth,
     height: randomHeight,
     placeholderId: `ph-related-${id}`,
-    aiHint: hints[randomIndex],
-    likes: Math.floor(Math.random() * 100),
-     uploader: {
-      name: "Community Artist",
-      avatarUrl: `https://placehold.co/40x40.png?text=C`,
-      username: "communityartist",
+    aiHint: chosenHint,
+    likes: Math.floor(Math.random() * 300),
+    uploader: {
+      name: uploaderNames[randomIndex],
+      avatarUrl: `https://placehold.co/40x40.png?text=${avatarPlaceholders[randomIndex]}`,
+      username: uploaderNames[randomIndex].toLowerCase().replace(' ', ''),
     },
   };
 };
 
-const fetchRelatedPins = async (pinId: string, page: number): Promise<Pin[]> => {
+const fetchRelatedPins = async (originalPin: Pin | null, page: number): Promise<Pin[]> => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const newPins: Pin[] = [];
-      for (let i = 0; i < PINS_PER_PAGE; i++) {
-        newPins.push(generateRandomRelatedPin(page * PINS_PER_PAGE + i));
-      }
-      resolve(newPins.filter(p => p.id !== pinId)); // Exclude the main pin if it appears
-    }, 500);
+      const newPins: Pin[] = Array.from({ length: PINS_PER_PAGE_RELATED }, (_, i) =>
+        generateRandomRelatedPin(page * PINS_PER_PAGE_RELATED + i, originalPin?.aiHint)
+      );
+      resolve(newPins.filter(p => p.id !== originalPin?.id));
+    }, 600);
   });
 };
 
@@ -140,111 +132,102 @@ export default function PinDetailPage() {
   const [pinDetail, setPinDetail] = useState<Pin | null>(null);
   const [relatedPins, setRelatedPins] = useState<Pin[]>([]);
   const [isLoadingPin, setIsLoadingPin] = useState(true);
-  const [isLoadingRelated, setIsLoadingRelated] = useState(true); // Changed initial state
+  const [isLoadingRelated, setIsLoadingRelated] = useState(true);
   const [relatedPage, setRelatedPage] = useState(0);
   const [hasMoreRelated, setHasMoreRelated] = useState(true);
   const loaderRef = useRef<HTMLDivElement | null>(null);
+  const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
 
   useEffect(() => {
     if (pinId) {
       setIsLoadingPin(true);
+      setPinDetail(null); // Clear previous pin
+      setRelatedPins([]); // Clear related pins
+      setRelatedPage(0);
+      setHasMoreRelated(true);
+
       fetchPinById(pinId).then((data) => {
         setPinDetail(data);
         setIsLoadingPin(false);
+        if (data) {
+          loadMoreRelatedPins(data, 0); // Initial load for related pins
+        } else {
+          setIsLoadingRelated(false); // No pin, so no related pins
+        }
       });
     }
   }, [pinId]);
 
-  const loadMoreRelatedPins = useCallback(async () => {
-    if (isLoadingRelated && relatedPage !== 0) return; // Prevent multiple loads if already loading, unless initial
-    if (!hasMoreRelated || !pinId) return;
+  const loadMoreRelatedPins = useCallback(async (currentPin: Pin | null, pageToLoad: number) => {
+    if (!hasMoreRelated || !currentPin) return;
     
     setIsLoadingRelated(true);
-    const newPins = await fetchRelatedPins(pinId, relatedPage);
+    const newPins = await fetchRelatedPins(currentPin, pageToLoad);
     if (newPins.length > 0) {
-      setRelatedPins((prevPins) => [...prevPins, ...newPins]);
-      setRelatedPage((prevPage) => prevPage + 1);
+      setRelatedPins((prevPins) => pageToLoad === 0 ? newPins : [...prevPins, ...newPins]);
+      setRelatedPage(pageToLoad + 1);
     } else {
       setHasMoreRelated(false);
     }
     setIsLoadingRelated(false);
-  }, [pinId, relatedPage, isLoadingRelated, hasMoreRelated]);
-
-
-  useEffect(() => {
-    if (pinId) {
-      // Reset related pins when pinId changes
-      setRelatedPins([]);
-      setRelatedPage(0);
-      setHasMoreRelated(true);
-      setIsLoadingRelated(true); // Set to true before initial load
-      // Initial load for related pins
-      loadMoreRelatedPins();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinId]); // Removed loadMoreRelatedPins from deps to avoid re-triggering on its own change
-
+  }, [hasMoreRelated]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMoreRelated && !isLoadingRelated) {
-          loadMoreRelatedPins();
+        if (entries[0].isIntersecting && hasMoreRelated && !isLoadingRelated && pinDetail) {
+          loadMoreRelatedPins(pinDetail, relatedPage);
         }
       },
-      { threshold: 1.0 }
+      { threshold: 0.8 }
     );
 
     const currentLoaderRef = loaderRef.current;
     if (currentLoaderRef) {
       observer.observe(currentLoaderRef);
     }
-
     return () => {
-      if (currentLoaderRef) {
-        observer.unobserve(currentLoaderRef);
-      }
+      if (currentLoaderRef) observer.unobserve(currentLoaderRef);
     };
-  }, [loadMoreRelatedPins, hasMoreRelated, isLoadingRelated]);
+  }, [loadMoreRelatedPins, hasMoreRelated, isLoadingRelated, pinDetail, relatedPage]);
+
+  const openZoomModal = () => {
+    if (pinDetail) setIsZoomModalOpen(true);
+  };
 
 
   if (isLoadingPin) {
     return (
-      <div className="flex flex-col min-h-screen bg-background">
-        <div className="mx-auto my-8 w-full max-w-4xl lg:max-w-5xl p-4">
-          {/* Simplified Skeleton for header bar */}
-          <Skeleton className="h-14 w-full mb-4 rounded-t-2xl" /> 
-          <div className="flex flex-col lg:flex-row gap-8 p-4 sm:p-6 md:p-8 lg:p-0"> {/* Added padding for smaller screens, removed for lg */}
-            <Skeleton className="lg:w-1/2 h-[50vh] sm:h-[60vh] rounded-2xl" />
-            <div className="lg:w-1/2 space-y-4">
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-20 w-full" />
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-16" />
+      <div className="flex flex-col min-h-screen bg-background animate-fade-in">
+         {/* Simplified Skeleton for header bar */}
+        <div className="sticky top-0 z-20 h-[var(--header-height)] bg-background/80 backdrop-blur-md flex items-center px-4 border-b">
+            <Skeleton className="h-8 w-8 rounded-full mr-2" />
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-9 w-20 ml-auto rounded-full" />
+        </div>
+        <div className="mx-auto my-4 sm:my-8 w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl p-2 sm:p-4">
+          <div className="bg-card rounded-3xl shadow-card overflow-hidden">
+            <div className="flex flex-col lg:flex-row gap-6 p-4 sm:p-6 md:p-8">
+              <Skeleton className="lg:w-1/2 aspect-[3/4] rounded-2xl bg-muted/80" />
+              <div className="lg:w-1/2 space-y-6">
+                <Skeleton className="h-10 w-3/4 rounded-lg" />
+                <Skeleton className="h-24 w-full rounded-lg" />
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-5 w-32 rounded-md" />
+                    <Skeleton className="h-4 w-24 rounded-md" />
+                  </div>
+                  <Skeleton className="h-10 w-24 rounded-full" />
                 </div>
-                 <Skeleton className="h-9 w-20 ml-auto rounded-full" />
-              </div>
-              <Skeleton className="h-10 w-full mt-4" /> {/* Comments title placeholder */}
-              <div className="flex items-center gap-3">
-                 <Skeleton className="h-10 w-10 rounded-full" />
-                 <Skeleton className="h-10 flex-1 rounded-full" />
+                <Skeleton className="h-6 w-1/3 mt-4 rounded-md" />
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <Skeleton className="h-12 flex-1 rounded-full" />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        {/* Skeleton for "More like this" */}
-        <div className="mt-10 sm:mt-16 container mx-auto px-2 sm:px-4">
-            <Skeleton className="h-8 w-1/3 mx-auto mb-6" />
-            <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap">
-              {[...Array(5)].map((_, i) => (
-                <div key={`skeleton-related-loading-${i}`} className="break-inside-avoid mb-grid-gap">
-                  <Skeleton className={`w-full h-[${150 + Math.random() * 150}px] rounded-2xl`} />
-                </div>
-              ))}
-            </div>
         </div>
       </div>
     );
@@ -252,9 +235,13 @@ export default function PinDetailPage() {
 
   if (!pinDetail) {
     return (
-      <div className="flex flex-col min-h-screen bg-background justify-center items-center">
-        <p className="text-xl text-muted-foreground">Pin not found.</p>
-        <Button onClick={() => router.push('/')} className="mt-4">Go Home</Button>
+      <div className="flex flex-col min-h-screen bg-background justify-center items-center p-8 animate-fade-in">
+        <Search className="h-24 w-24 text-muted-foreground/50 mb-6" />
+        <h1 className="text-3xl font-bold text-foreground mb-2">Pin Not Found</h1>
+        <p className="text-lg text-muted-foreground mb-8 text-center">Oops! We couldn't find the pin you were looking for. It might have been removed or the link is incorrect.</p>
+        <Button onClick={() => router.push('/')} size="lg" className="rounded-full px-8">
+          <ArrowLeft className="mr-2 h-5 w-5" /> Go Back Home
+        </Button>
       </div>
     );
   }
@@ -263,130 +250,163 @@ export default function PinDetailPage() {
   const mainImageHeight = (mainImageWidth / pinDetail.width) * pinDetail.height;
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="pb-12">
-        <div className="bg-card rounded-b-2xl sm:rounded-2xl shadow-xl mx-auto my-0 sm:my-8 w-full max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl flex flex-col">
-          {/* Top action bar */}
-          <div className="p-3 sm:p-4 flex items-center justify-between border-b sticky top-0 sm:relative bg-card rounded-t-2xl z-10">
-            <div className="flex items-center gap-1 sm:gap-2">
-              <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back">
-                <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="Like pin">
-                <Heart className="h-5 w-5 sm:h-6 sm:w-6" />
-                {pinDetail.likes !== undefined && (
-                  <span className="ml-1 text-xs sm:text-sm font-medium">{pinDetail.likes}</span>
-                )}
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="Comment on pin">
-                <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="Share pin">
-                <Upload className="h-5 w-5 sm:h-6 sm:w-6" />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="More options">
-                <MoreHorizontal className="h-5 w-5 sm:h-6 sm:w-6" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="px-2 sm:px-3 py-1 sm:py-1.5 h-auto text-xs sm:text-sm hidden md:flex items-center">
-                    Profile <ChevronDown className="ml-1 h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>View Profile</DropdownMenuItem>
-                  <DropdownMenuItem>My Pins</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button className="px-3 sm:px-4 py-1.5 sm:py-2 h-auto text-xs sm:text-sm">Save</Button>
-            </div>
-          </div>
-
-          {/* Main content: image and details */}
-          <div className="flex flex-col lg:flex-row p-3 sm:p-4 md:p-6 lg:p-8 gap-4 md:gap-6 lg:gap-8">
-            {/* Left: Image */}
-            <div className={`lg:w-1/2 bg-muted rounded-2xl flex justify-center items-center p-2 relative aspect-[${pinDetail.width}/${pinDetail.height}] max-h-[80vh]`}>
-              <Image
-                src={`https://placehold.co/${pinDetail.width}x${pinDetail.height}.png`}
-                alt={pinDetail.alt}
-                width={mainImageWidth}
-                height={mainImageHeight}
-                className="rounded-xl object-contain w-full h-full max-h-[75vh]"
-                data-ai-hint={pinDetail.aiHint}
-                unoptimized={true}
-                priority
-              />
-              <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 flex flex-col gap-2">
-                <Button variant="secondary" size="icon" className="rounded-full h-8 w-8 sm:h-10 sm:w-10" aria-label="Zoom image">
-                  <Maximize2 className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-                <Button variant="secondary" size="icon" className="rounded-full h-8 w-8 sm:h-10 sm:w-10" aria-label="Search similar images">
-                  <Search className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
+    <>
+      <div className="flex flex-col min-h-screen bg-background animate-fade-in">
+        {/* Top action bar - simplified and integrated */}
+        <div className="sticky top-0 z-20 h-[var(--header-height)] bg-background/80 backdrop-blur-md flex items-center px-2 sm:px-4 border-b">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back" className="mr-1 sm:mr-2 rounded-full text-foreground/80 hover:text-primary hover:bg-primary/10">
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          {pinDetail.uploader && (
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+                <AvatarImage src={pinDetail.uploader.avatarUrl} alt={pinDetail.uploader.name} data-ai-hint="uploader avatar small" />
+                <AvatarFallback>{pinDetail.uploader.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+              </Avatar>
+              <div className="hidden sm:block">
+                <p className="font-semibold text-sm truncate">{pinDetail.uploader.name}</p>
+                <p className="text-xs text-muted-foreground truncate">@{pinDetail.uploader.username}</p>
               </div>
             </div>
+          )}
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="More options" className="rounded-full text-foreground/80 hover:text-primary hover:bg-primary/10">
+                  <MoreHorizontal className="h-6 w-6" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="shadow-modal">
+                <DropdownMenuItem><Download className="mr-2 h-4 w-4" /> Download image</DropdownMenuItem>
+                <DropdownMenuItem><Link2 className="mr-2 h-4 w-4" /> Copy link</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem><Flag className="mr-2 h-4 w-4" /> Report Pin</DropdownMenuItem>
+                <DropdownMenuItem><Code2 className="mr-2 h-4 w-4" /> Get Pin embed code</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="lg" className="rounded-full px-5 sm:px-6 bg-primary hover:bg-primary/90 text-primary-foreground">Save</Button>
+          </div>
+        </div>
 
-            {/* Right: Details */}
-            <div className="lg:w-1/2 flex flex-col gap-4 pt-4 lg:pt-0">
-              {pinDetail.title && <h1 className="text-xl sm:text-2xl font-bold font-headline leading-tight">{pinDetail.title}</h1>}
-              {pinDetail.description && <p className="text-sm sm:text-base text-foreground/80">{pinDetail.description}</p>}
-              
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                    <AvatarImage src={pinDetail.uploader?.avatarUrl || `https://placehold.co/40x40.png`} alt={pinDetail.uploader?.name || 'Uploader'} data-ai-hint="user avatar" />
-                    <AvatarFallback>{pinDetail.uploader?.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-semibold text-sm sm:text-base">{pinDetail.uploader?.name || 'User Name'}</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">@{pinDetail.uploader?.username || 'username'}</p>
+        <main className="flex-grow pb-16">
+          <div className="mt-4 sm:mt-8 mx-auto w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl px-2 sm:px-4">
+            <div className="bg-card rounded-3xl shadow-card overflow-hidden">
+              <div className="flex flex-col lg:flex-row gap-0">
+                {/* Left: Image */}
+                <div className="lg:w-[55%] xl:w-1/2 bg-muted/50 flex justify-center items-center p-4 sm:p-6 md:p-8 relative cursor-pointer" onClick={openZoomModal}>
+                  <Image
+                    src={`https://placehold.co/${pinDetail.width}x${pinDetail.height}.png`}
+                    alt={pinDetail.alt}
+                    width={mainImageWidth}
+                    height={mainImageHeight}
+                    className="rounded-2xl object-contain w-full h-full max-h-[75vh] shadow-md"
+                    data-ai-hint={pinDetail.aiHint}
+                    unoptimized={true}
+                    priority
+                  />
+                  <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 flex flex-col gap-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <Button variant="secondary" size="icon" className="rounded-full h-10 w-10 bg-black/40 hover:bg-black/60 text-white border-none shadow-md" aria-label="Zoom image" onClick={(e) => {e.stopPropagation(); openZoomModal();}}>
+                      <Maximize2 className="h-5 w-5" />
+                    </Button>
+                    <Button variant="secondary" size="icon" className="rounded-full h-10 w-10 bg-black/40 hover:bg-black/60 text-white border-none shadow-md" aria-label="Search similar images" onClick={(e) => e.stopPropagation()}>
+                      <Search className="h-5 w-5" />
+                    </Button>
                   </div>
                 </div>
-                <Button variant="secondary" className="text-xs sm:text-sm px-3 py-1.5 h-auto">Follow</Button>
-              </div>
 
-              <div className="mt-4">
-                <h3 className="font-semibold mb-2 text-base sm:text-lg">Comments</h3>
-                {/* Placeholder for actual comments list */}
-                <p className="text-sm text-muted-foreground mb-3">No comments yet. Be the first!</p>
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                    <AvatarImage src="https://placehold.co/40x40.png" alt="Current user" data-ai-hint="profile avatar current" />
-                    <AvatarFallback>Y</AvatarFallback>
-                  </Avatar>
-                  <Input placeholder="Add a comment..." className="rounded-full h-10 text-sm sm:text-base"/>
+                {/* Right: Details */}
+                <div className="lg:w-[45%] xl:w-1/2 flex flex-col p-4 sm:p-6 md:p-8">
+                  {pinDetail.title && <h1 className="text-2xl sm:text-3xl font-bold font-headline leading-tight mb-3">{pinDetail.title}</h1>}
+                  {pinDetail.description && <p className="text-base text-foreground/80 mb-6 leading-relaxed">{pinDetail.description}</p>}
+                  
+                  {pinDetail.uploader && (
+                    <div className="flex items-center justify-between mb-6">
+                      <Link href={`/u/${pinDetail.uploader.username}`} className="flex items-center gap-3 group focus-ring rounded-full p-1 -m-1">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={pinDetail.uploader.avatarUrl} alt={pinDetail.uploader.name} data-ai-hint="uploader avatar large" />
+                          <AvatarFallback className="text-lg">{pinDetail.uploader.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold text-md group-hover:text-primary transition-colors">{pinDetail.uploader.name}</p>
+                          <p className="text-sm text-muted-foreground">@{pinDetail.uploader.username}</p>
+                        </div>
+                      </Link>
+                      <Button variant="secondary" className="rounded-full px-5 h-10 text-sm font-medium hover:bg-secondary/80 focus-ring">Follow</Button>
+                    </div>
+                  )}
+                  
+                  {pinDetail.tags && pinDetail.tags.length > 0 && (
+                    <div className="mb-6">
+                        <h3 className="font-semibold text-sm text-muted-foreground mb-2">Tags</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {pinDetail.tags.map(tag => (
+                                <Button key={tag} variant="outline" size="sm" className="rounded-full text-xs px-3 py-1 hover:bg-secondary/50 hover:border-primary/50">
+                                    {tag}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                  )}
+
+                  <div className="mt-auto"> {/* Pushes comments to bottom */}
+                    <h3 className="font-semibold text-lg mb-3">Comments ({/* Add count here */ '0'})</h3>
+                    <div className="space-y-4 mb-6 max-h-60 overflow-y-auto pr-2">
+                      {/* Placeholder for actual comments list */}
+                      <p className="text-sm text-muted-foreground">No comments yet. Be the first to share your thoughts!</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-10 w-10 mt-1">
+                        <AvatarImage src="https://placehold.co/40x40.png?text=U" alt="Your avatar" data-ai-hint="profile avatar current user" />
+                        <AvatarFallback>U</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 relative">
+                        <Textarea placeholder="Add a comment..." className="rounded-2xl pr-20 min-h-[48px] py-3 text-sm resize-none focus-ring" rows={1}/>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary rounded-full">
+                                <Smile className="h-5 w-5"/>
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary rounded-full">
+                                <Send className="h-5 w-5"/>
+                            </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* "More like this" section */}
-        <div className="mt-10 sm:mt-16 container mx-auto px-2 sm:px-4">
-          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center font-headline">More like this</h2>
-          <PinGrid pins={relatedPins} onPinClick={(pin) => router.push(`/pin/${pin.id}`)} />
-          {isLoadingRelated && relatedPins.length === 0 && ( // Show skeleton only if no pins loaded yet
-             <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap">
-              {[...Array(5)].map((_, i) => (
-                <div key={`skeleton-related-${i}`} className="break-inside-avoid mb-grid-gap">
-                  <Skeleton className={`w-full h-[${150 + Math.random() * 150}px] rounded-2xl`} />
+          {/* "More like this" section */}
+          {(relatedPins.length > 0 || isLoadingRelated) && (
+            <div className="mt-12 sm:mt-16 container mx-auto px-2 sm:px-4">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center font-headline">More like this</h2>
+              <PinGrid pins={relatedPins} onPinClick={(pin) => router.push(`/pin/${pin.id}`)} />
+              {isLoadingRelated && relatedPins.length === 0 && (
+                <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={`skeleton-related-${i}`} className="break-inside-avoid mb-grid-gap">
+                      <Skeleton className={`w-full h-[${180 + Math.random() * 200}px] rounded-2xl bg-muted/80`} />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+              <div ref={loaderRef} className="h-20 w-full flex justify-center items-center" aria-hidden="true">
+                 {isLoadingRelated && relatedPins.length > 0 && (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                 )}
+              </div>
+              {!hasMoreRelated && relatedPins.length > 0 && (
+                <p className="text-center text-muted-foreground font-medium py-10 text-lg">✨ You've explored all related pins! ✨</p>
+              )}
+              {!hasMoreRelated && relatedPins.length === 0 && !isLoadingRelated && pinDetail && (
+                <p className="text-center text-muted-foreground py-8">No more related pins found for this one.</p>
+              )}
             </div>
           )}
-          <div ref={loaderRef} className="h-10 w-full" aria-hidden="true" />
-          {!hasMoreRelated && relatedPins.length > 0 && (
-            <p className="text-center text-muted-foreground py-8">No more related pins to show.</p>
-          )}
-           {!hasMoreRelated && relatedPins.length === 0 && !isLoadingRelated && (
-             <p className="text-center text-muted-foreground py-8">No related pins found.</p>
-           )}
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+      <ImageZoomModal pin={pinDetail} isOpen={isZoomModalOpen} onClose={() => setIsZoomModalOpen(false)} />
+    </>
   );
 }
-
-    
