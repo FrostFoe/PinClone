@@ -61,18 +61,16 @@ export default function AppClientLayout({
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={{ children: item.label, side: "right", align: "center" }}
-                    isActive={item.exact ? pathname === item.href : pathname.startsWith(item.href)}
-                  >
-                    <>
-                      <item.icon />
-                      <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">{item.label}</span>
-                    </>
-                  </SidebarMenuButton>
-                </Link>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={{ children: item.label, side: "right", align: "center" }}
+                  isActive={item.exact ? pathname === item.href : pathname.startsWith(item.href)}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
@@ -81,49 +79,43 @@ export default function AppClientLayout({
           <SidebarMenu>
             {footerNavItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={{ children: item.label, side: "right", align: "center" }}
-                    isActive={pathname.startsWith(item.href)}
-                  >
-                    <>
-                      <item.icon />
-                      <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">{item.label}</span>
-                    </>
-                  </SidebarMenuButton>
-                </Link>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={{ children: item.label, side: "right", align: "center" }}
+                  isActive={pathname.startsWith(item.href)}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
              {!true && ( 
                 <>
                 <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={{ children: "Login", side: "right", align: "center" }}
+                    isActive={pathname === '/login'}
+                  >
                     <Link href="/login">
-                    <SidebarMenuButton
-                        asChild
-                        tooltip={{ children: "Login", side: "right", align: "center" }}
-                        isActive={pathname === '/login'}
-                    >
-                        <>
-                            <LogIn />
-                            <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Login</span>
-                        </>
-                    </SidebarMenuButton>
+                      <LogIn />
+                      <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Login</span>
                     </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={{ children: "Sign Up", side: "right", align: "center" }}
+                    isActive={pathname === '/signup'}
+                  >
                     <Link href="/signup">
-                    <SidebarMenuButton
-                        asChild
-                        tooltip={{ children: "Sign Up", side: "right", align: "center" }}
-                        isActive={pathname === '/signup'}
-                    >
-                        <>
-                            <FileSignature />
-                            <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Sign Up</span>
-                        </>
-                    </SidebarMenuButton>
+                      <FileSignature />
+                      <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Sign Up</span>
                     </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 </>
             )}
