@@ -3,14 +3,14 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import AppHeader from '@/components/app-header';
+// AppHeader is global
 import PinGrid from '@/components/pin-grid';
 import type { Pin, Profile } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { UserPlus, MessageSquare, Search as SearchIcon, CheckCircle } from 'lucide-react';
+import { UserPlus, MessageSquare, Search as SearchIconLucide, CheckCircle, Users, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { fetchProfileByUsername } from '@/services/profileService';
 import { fetchPinsByUserId } from '@/services/pinService';
@@ -35,20 +35,21 @@ export default function UserPublicProfilePage() {
 
   const loadUserProfile = useCallback(async (uname: string) => {
     setIsLoadingUser(true);
+    setUserData(null); // Reset on new username
+    setPins([]);
+    setPinsPage(1);
+    setHasMorePins(true);
+
     const { profile, error } = await fetchProfileByUsername(uname);
     if (error || !profile) {
-      toast({ variant: 'destructive', title: 'Error', description: error || 'User not found.' });
-      setUserData(null);
+      toast({ variant: 'destructive', title: 'User Not Found', description: error || `Profile for @${uname} could not be loaded.` });
+      // router.push('/not-found'); // Or handle inline
     } else {
       setUserData(profile);
-      setPins([]); // Reset pins for the new profile
-      setPinsPage(1);
-      setHasMorePins(true);
-      loadMorePins(profile.id, 1, true); // Load initial pins
+      loadMorePins(profile.id, 1, true, activeTab);
     }
     setIsLoadingUser(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]);
+  }, [toast, activeTab]); // Added activeTab
 
   useEffect(() => {
     if (username) {
@@ -56,16 +57,23 @@ export default function UserPublicProfilePage() {
     }
   }, [username, loadUserProfile]);
 
-  const loadMorePins = useCallback(async (userId: string, pageToLoad: number, initialLoad = false) => {
+  const loadMorePins = useCallback(async (userId: string, pageToLoad: number, initialLoad = false, currentTab: string) => {
     if (isLoadingPins && !initialLoad) return;
     if (!hasMorePins && !initialLoad) return;
 
     setIsLoadingPins(true);
-    // For now, 'saved' tab will show the same as 'created' for public profiles
-    const { pins: newPins, error } = await fetchPinsByUserId(userId, pageToLoad, PINS_PER_PAGE);
+    let fetchedData;
+    if (currentTab === 'created') {
+        fetchedData = await fetchPinsByUserId(userId, pageToLoad, PINS_PER_PAGE);
+    } else {
+        // Placeholder for 'saved' pins
+        fetchedData = { pins: [], error: null };
+        setHasMorePins(false);
+    }
+    const { pins: newPins, error } = fetchedData;
 
     if (error) {
-      toast({ variant: 'destructive', title: `Error fetching ${activeTab} pins`, description: error });
+      toast({ variant: 'destructive', title: `Error fetching ${currentTab} pins`, description: error });
       setHasMorePins(false);
     } else {
       if (newPins.length > 0) {
@@ -77,36 +85,33 @@ export default function UserPublicProfilePage() {
       }
     }
     setIsLoadingPins(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, toast, isLoadingPins, hasMorePins]);
+  }, [toast, isLoadingPins, hasMorePins]);
 
   useEffect(() => {
-    // Reset pins and pagination when tab changes
     if (userData?.id) {
         setPins([]);
         setPinsPage(1);
         setHasMorePins(true);
-        loadMorePins(userData.id, 1, true);
+        loadMorePins(userData.id, 1, true, activeTab);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, userData?.id]);
+  }, [activeTab, userData?.id, loadMorePins]);
 
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMorePins && !isLoadingPins && userData?.id) {
-          loadMorePins(userData.id, pinsPage);
+        if (entries[0].isIntersecting && hasMorePins && !isLoadingPins && userData?.id && activeTab === 'created') {
+          loadMorePins(userData.id, pinsPage, false, activeTab);
         }
       },
       { threshold: 0.8 }
     );
     const currentLoader = pinsLoaderRef.current;
-    if (currentLoader && hasMorePins) observer.observe(currentLoader);
+    if (currentLoader && hasMorePins && activeTab === 'created') observer.observe(currentLoader);
     return () => {
       if (currentLoader) observer.unobserve(currentLoader);
     };
-  }, [loadMorePins, hasMorePins, isLoadingPins, pinsPage, userData?.id]);
+  }, [loadMorePins, hasMorePins, isLoadingPins, pinsPage, userData?.id, activeTab]);
 
 
   const handlePinClick = (pin: Pin) => {
@@ -117,8 +122,7 @@ export default function UserPublicProfilePage() {
 
   if (isLoadingUser) {
     return (
-      <div className="flex-1 flex flex-col animate-fade-in">
-        <AppHeader />
+      <div className="flex-1 flex flex-col animate-fade-in pt-8">
         <Skeleton className="w-full h-48 sm:h-64 bg-muted" />
         <div className="container mx-auto px-4 -mt-16 sm:-mt-20 pb-8 text-center">
           <Skeleton className="h-24 w-24 sm:h-32 sm:w-32 rounded-full border-4 border-background bg-muted mx-auto" />
@@ -129,6 +133,15 @@ export default function UserPublicProfilePage() {
             <Skeleton className="h-10 w-24 rounded-full bg-muted" />
           </div>
         </div>
+         <div className="container mx-auto px-4 py-8">
+           <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap">
+            {[...Array(6)].map((_, i) => (
+              <div key={`skeleton-profile-pins-${i}`} className="break-inside-avoid mb-grid-gap">
+                <Skeleton className={`w-full h-[${200 + Math.floor(Math.random() * 150)}px] rounded-2xl bg-muted/80`} />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -136,9 +149,8 @@ export default function UserPublicProfilePage() {
   if (!userData) {
     return (
       <div className="flex-1 flex flex-col">
-        <AppHeader />
         <div className="flex-grow flex flex-col items-center justify-center text-center p-8">
-          <UserPlus className="h-24 w-24 text-muted-foreground/50 mb-6" />
+          <Users className="h-24 w-24 text-muted-foreground/50 mb-6" />
           <h1 className="text-3xl font-bold text-foreground mb-2">User Not Found</h1>
           <p className="text-lg text-muted-foreground mb-8">Sorry, we couldn't find a profile for @{username}.</p>
           <Button onClick={() => router.push('/')} size="lg" className="rounded-full px-8">
@@ -149,18 +161,16 @@ export default function UserPublicProfilePage() {
     );
   }
   
-  // Use a placeholder for cover photo or make it optional in your data
-  const coverPhotoUrl = `https://placehold.co/1200x300.png?text=${userData.username}`;
+  const coverPhotoUrl = `https://placehold.co/1600x400.png`; // Generic placeholder
 
   return (
-    <div className="flex-1 flex flex-col animate-fade-in-up">
-      <AppHeader />
+    <div className="flex-1 flex flex-col animate-fade-in-up pt-8"> {/* pt-8 to account for AppHeader */}
       <div 
         className="h-48 sm:h-64 bg-cover bg-center relative" 
         style={{ backgroundImage: `url(${coverPhotoUrl})` }}
-        data-ai-hint="profile cover background"
+        data-ai-hint="profile cover abstract"
       >
-        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
       </div>
 
       <div className="container mx-auto px-4 -mt-16 sm:-mt-20 pb-6">
@@ -170,20 +180,23 @@ export default function UserPublicProfilePage() {
             <AvatarFallback className="text-4xl">{userData.full_name?.[0]?.toUpperCase() || userData.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
           <h1 className="text-3xl sm:text-4xl font-bold font-headline text-foreground">{userData.full_name || userData.username}</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">@{userData.username}</p>
+          {userData.username && <p className="text-muted-foreground text-sm sm:text-base">@{userData.username}</p>}
           {userData.bio && <p className="max-w-xl mt-2 text-foreground/80 text-sm sm:text-base">{userData.bio}</p>}
           {userData.website && (
-            <a href={!userData.website.startsWith('http') ? `https://${userData.website}` : userData.website} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-primary hover:underline">
-              {userData.website}
+            <a 
+              href={!userData.website.startsWith('http') ? `https://${userData.website}` : userData.website} 
+              target="_blank" rel="noopener noreferrer" 
+              className="mt-2 text-sm text-primary hover:underline inline-flex items-center gap-1"
+            >
+              {userData.website.replace(/^https?:\/\//, '')} <ExternalLink className="h-3 w-3" />
             </a>
           )}
-          {/* Followers/Following requires more DB work */}
           <div className="mt-6 flex gap-2">
             <Button 
               variant={isFollowing ? "secondary" : "default"} 
               size="lg" 
               className="rounded-full px-6 font-medium focus-ring transition-all duration-150 ease-in-out"
-              onClick={handleFollowToggle} // Mock action
+              onClick={handleFollowToggle}
             >
               {isFollowing ? <CheckCircle className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />}
               {isFollowing ? "Following" : "Follow"}
@@ -195,21 +208,20 @@ export default function UserPublicProfilePage() {
         </div>
       </div>
 
-      <div className="flex-1 container mx-auto px-2 sm:px-4 pb-8">
+      <div className="flex-1 container mx-auto px-0 sm:px-4 pb-8">
          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="sticky top-[var(--header-height)] bg-background/80 backdrop-blur-md z-10 py-2 -mx-2 sm:-mx-4 px-2 sm:px-4 border-b mb-6">
+          <div className="sticky top-[calc(var(--header-height)+var(--header-height))] sm:top-[var(--header-height)] bg-background/90 backdrop-blur-md z-10 py-3 -mx-2 sm:-mx-4 px-2 sm:px-4 border-b mb-6">
             <div className="flex items-center justify-center">
-                <TabsList className="bg-transparent p-0 gap-2">
+                <TabsList className="bg-transparent p-0 gap-2 sm:gap-3">
                 <TabsTrigger 
                     value="created" 
-                    className="px-5 py-2.5 text-base font-medium rounded-lg data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm hover:bg-muted/60 data-[state=inactive]:text-muted-foreground"
+                    className="px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-medium rounded-lg data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm hover:bg-muted/60 data-[state=inactive]:text-muted-foreground"
                 >
                     Created
                 </TabsTrigger>
                 <TabsTrigger 
                     value="saved"
-                    disabled // Saved feature not implemented yet
-                    className="px-5 py-2.5 text-base font-medium rounded-lg data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm hover:bg-muted/60 data-[state=inactive]:text-muted-foreground"
+                    className="px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-medium rounded-lg data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm hover:bg-muted/60 data-[state=inactive]:text-muted-foreground"
                 >
                     Saved
                 </TabsTrigger>
@@ -218,45 +230,44 @@ export default function UserPublicProfilePage() {
           </div>
 
           <TabsContent value="created">
-            <PinGrid pins={pins} onPinClick={handlePinClick} showPinDetailsOverlay={true} />
+            {pins.length > 0 && <PinGrid pins={pins} onPinClick={handlePinClick} showPinDetailsOverlay={true} />}
+            {isLoadingPins && pins.length === 0 && (
+              <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap pt-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={`skeleton-user-public-created-${i}`} className="break-inside-avoid mb-grid-gap">
+                    <Skeleton className={`w-full h-[${220 + Math.floor(Math.random() * 180)}px] rounded-2xl bg-muted/80`} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {!hasMorePins && pins.length === 0 && !isLoadingPins && (
+              <div className="text-center py-16">
+                <SearchIconLucide className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-foreground">No created pins yet</h3>
+                <p className="text-muted-foreground mt-1">@{userData.username} hasn't shared any pins.</p>
+              </div>
+            )}
           </TabsContent>
           <TabsContent value="saved">
              <div className="text-center py-16">
-                <SearchIcon className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-foreground">Saved Pins Feature Coming Soon</h3>
-                <p className="text-muted-foreground mt-1">This user's saved pins will appear here.</p>
+                <Users className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-foreground">No saved pins yet</h3>
+                <p className="text-muted-foreground mt-1">@{userData.username} hasn't saved any pins.</p>
               </div>
           </TabsContent>
         </Tabs>
 
-        {isLoadingPins && pins.length === 0 && (
-          <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap pt-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={`skeleton-user-public-initial-${i}`} className="break-inside-avoid mb-grid-gap">
-                <Skeleton className={`w-full h-[${220 + Math.floor(Math.random() * 180)}px] rounded-2xl bg-muted/80`} />
-              </div>
-            ))}
-          </div>
-        )}
         {isLoadingPins && pins.length > 0 && (
            <div className="h-20 w-full flex justify-center items-center mt-4">
              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
            </div>
         )}
         <div ref={pinsLoaderRef} className="h-1 w-full" aria-hidden="true" />
-        {!hasMorePins && pins.length > 0 && (
-          <p className="text-center text-muted-foreground font-medium py-10 text-lg">✨ End of @{userData.username}'s {activeTab} pins! ✨</p>
-        )}
-        {!hasMorePins && pins.length === 0 && !isLoadingPins && (
-          <div className="text-center py-16">
-            <SearchIcon className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-foreground">No {activeTab} pins to show</h3>
-            <p className="text-muted-foreground mt-1">
-              @{userData.username} hasn't {activeTab} any pins yet.
-            </p>
-          </div>
+        {!hasMorePins && pins.length > 0 && activeTab === 'created' && (
+          <p className="text-center text-muted-foreground font-medium py-10 text-lg">✨ End of @{userData.username}'s created pins! ✨</p>
         )}
       </div>
     </div>
   );
 }
+```

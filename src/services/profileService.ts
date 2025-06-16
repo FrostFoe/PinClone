@@ -1,33 +1,34 @@
 
-'use server'; // Or remove if only used client-side
+'use server';
 
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { createSupabaseServerClient } from '@/lib/supabase/server'; // Use server client for server actions
 import type { Profile } from '@/types';
 import type { TablesUpdate } from '@/types/supabase';
 
-const supabase = createSupabaseBrowserClient(); // For client-side usage
-
 export async function fetchProfileByUsername(username: string): Promise<{ profile: Profile | null, error: string | null }> {
+  const supabase = createSupabaseServerClient();
   if (!username) return { profile: null, error: 'Username is required.' };
   try {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .ilike('username', username) // Case-insensitive match
+      .ilike('username', username)
       .single();
 
     if (error) {
-      console.error('Error fetching profile by username:', error);
+      if (error.code === 'PGRST116') return { profile: null, error: 'Profile not found.' };
+      console.error('Error fetching profile by username:', error.message);
       return { profile: null, error: error.message };
     }
     return { profile: data, error: null };
-  } catch (e) {
-    console.error('Unexpected error fetching profile by username:', e);
+  } catch (e: any) {
+    console.error('Unexpected error fetching profile by username:', e.message);
     return { profile: null, error: 'An unexpected error occurred.' };
   }
 }
 
 export async function fetchProfileById(userId: string): Promise<{ profile: Profile | null, error: string | null }> {
+  const supabase = createSupabaseServerClient();
   if (!userId) return { profile: null, error: 'User ID is required.' };
   try {
     const { data, error } = await supabase
@@ -37,18 +38,26 @@ export async function fetchProfileById(userId: string): Promise<{ profile: Profi
       .single();
 
     if (error) {
-      console.error('Error fetching profile by ID:', error);
+      if (error.code === 'PGRST116') return { profile: null, error: 'Profile not found for this user ID.' };
+      console.error('Error fetching profile by ID:', error.message);
       return { profile: null, error: error.message };
     }
     return { profile: data, error: null };
-  } catch (e) {
-    console.error('Unexpected error fetching profile by ID:', e);
+  } catch (e: any) {
+    console.error('Unexpected error fetching profile by ID:', e.message);
     return { profile: null, error: 'An unexpected error occurred.' };
   }
 }
 
 export async function updateProfile(userId: string, updates: TablesUpdate<'profiles'>): Promise<{ profile: Profile | null, error: string | null }> {
+  const supabase = createSupabaseServerClient();
   if (!userId) return { profile: null, error: 'User ID is required for update.' };
+  
+  // Ensure username is not empty if provided
+  if (updates.username !== undefined && (updates.username === null || updates.username.trim() === '')) {
+    return { profile: null, error: 'Username cannot be empty.'};
+  }
+
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -58,17 +67,21 @@ export async function updateProfile(userId: string, updates: TablesUpdate<'profi
       .single();
 
     if (error) {
-      console.error('Error updating profile:', error);
+      console.error('Error updating profile:', error.message);
+      if (error.message.includes('profiles_username_key')) { // Or check for specific error code for unique constraint
+        return { profile: null, error: 'This username is already taken.' };
+      }
       return { profile: null, error: error.message };
     }
     return { profile: data, error: null };
-  } catch (e) {
-    console.error('Unexpected error updating profile:', e);
+  } catch (e: any) {
+    console.error('Unexpected error updating profile:', e.message);
     return { profile: null, error: 'An unexpected error occurred.' };
   }
 }
 
 export async function checkUsernameAvailability(username: string): Promise<{ available: boolean, error: string | null }> {
+  const supabase = createSupabaseServerClient();
   if (!username || username.trim().length < 3) {
     return { available: false, error: 'Username must be at least 3 characters.' };
   }
@@ -76,22 +89,17 @@ export async function checkUsernameAvailability(username: string): Promise<{ ava
     const { data, error } = await supabase
       .from('profiles')
       .select('username')
-      .ilike('username', username)
-      .maybeSingle(); // Use maybeSingle to not error if no user found
+      .ilike('username', username.trim()) // Ensure we check trimmed username
+      .maybeSingle(); 
 
     if (error) {
-      console.error('Error checking username:', error);
+      console.error('Error checking username:', error.message);
       return { available: false, error: error.message };
     }
-    return { available: !data, error: null }; // Available if no profile with that username is found
-  } catch (e) {
-    console.error('Unexpected error checking username:', e);
+    return { available: !data, error: null }; 
+  } catch (e: any) {
+    console.error('Unexpected error checking username:', e.message);
     return { available: false, error: 'An unexpected error occurred while checking username.' };
   }
 }
-
-// Note on profile creation on signup:
-// This is typically handled via a Supabase Database Function that triggers
-// on new user creation in `auth.users` table.
-// See the `handle_new_user` function in the README.md SQL schema section.
-// Client-side profile creation after signup is also possible but less robust.
+```

@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Toaster } from '@/components/ui/toaster';
 import {
   SidebarProvider,
@@ -18,9 +18,12 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import PincloneLogo from '@/components/pinclone-logo';
-import { Home, PlusSquare, User, Settings, HelpCircle, LogIn, FileSignature, Search, Bell, MessageCircle } from 'lucide-react'; // Added Bell, MessageCircle
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'; // For auth state
+import { Home, PlusSquare, User, Settings, Search, LogIn, FileSignature, Compass } from 'lucide-react';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
+import AppHeader from '@/components/app-header'; // Import AppHeader
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+
 
 export default function AppClientLayout({
   children,
@@ -28,37 +31,47 @@ export default function AppClientLayout({
   children: ReactNode;
 }>) {
   const pathname = usePathname();
+  const router = useRouter();
   const supabase = createSupabaseBrowserClient();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      setIsLoadingAuth(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setCurrentUser(session?.user ?? null);
+        setIsLoadingAuth(false);
+        if (event === 'SIGNED_OUT' && !['/login', '/signup'].includes(pathname)) {
+          router.push('/login');
+        }
+        // If signed in and on login/signup, redirect to home
+        if (event === 'SIGNED_IN' && ['/login', '/signup'].includes(pathname)) {
+          router.push('/');
+        }
+      }
+    );
+    // Initial check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
       setIsLoadingAuth(false);
-    };
-    checkAuth();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-       if (event === 'SIGNED_OUT' && (pathname !== '/login' && pathname !== '/signup')) {
-        // No need to redirect here as AppHeader handles it. This just updates state.
+      if (!session && !['/login', '/signup', '/'].includes(pathname) && !pathname.startsWith('/pin/') && !pathname.startsWith('/u/')) {
+        // Allow public access to home, pin details, and user profiles
+        // Redirect other protected routes
+        if (!['/', '/search'].includes(pathname) && !pathname.startsWith('/pin/') && !pathname.startsWith('/u/')) {
+           router.push('/login');
+        }
       }
     });
+
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase.auth, pathname]);
+  }, [supabase, pathname, router]);
 
   const navItems = [
     { href: '/', label: 'Home', icon: Home, exact: true },
-    { href: '/create', label: 'Create', icon: PlusSquare, authRequired: true }, // Example: auth required
-    { href: '/search', label: 'Explore', icon: Search },
-    // Notifications and Messages moved to AppHeader, but can be here too if design prefers
-    // { href: '/notifications', label: 'Notifications', icon: Bell, authRequired: true },
-    // { href: '/messages', label: 'Messages', icon: MessageCircle, authRequired: true },
+    { href: '/search', label: 'Explore', icon: Search }, // Explore/Search page
+    { href: '/create', label: 'Create', icon: PlusSquare, authRequired: true },
     { href: '/profile', label: 'Profile', icon: User, authRequired: true },
   ];
 
@@ -67,8 +80,9 @@ export default function AppClientLayout({
   ];
 
   const isAuthPage = pathname === '/login' || pathname === '/signup';
+  const isNotFoundPage = pathname === '/not-found'; // Assuming /not-found is your 404 route
 
-  if (isAuthPage) {
+  if (isAuthPage || isNotFoundPage) {
     return (
       <>
         {children}
@@ -76,13 +90,12 @@ export default function AppClientLayout({
       </>
     );
   }
-  
-  // Don't render sidebar until auth state is known to avoid flicker
+
   if (isLoadingAuth) {
      return (
       <>
         <div className="flex items-center justify-center min-h-screen bg-background">
-          {/* You can put a global loader/spinner here */}
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
         <Toaster />
       </>
@@ -91,22 +104,23 @@ export default function AppClientLayout({
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <Sidebar collapsible="icon" variant="sidebar" side="left" className="border-r border-sidebar-border shadow-sm">
+      <Sidebar collapsible="icon" variant="sidebar" side="left" className="border-r border-sidebar-border shadow-sm bg-card">
         <SidebarHeader className="p-0 flex items-center justify-center h-[var(--header-height)]">
           <Link href="/" aria-label="Pinclone Home" className="focus-ring rounded-md">
-            <PincloneLogo className="h-7 w-7 text-primary" />
+            <PincloneLogo className="h-8 w-8 text-primary" />
           </Link>
         </SidebarHeader>
         <SidebarContent className="p-2">
           <SidebarMenu>
             {navItems.map((item) => {
-              if (item.authRequired && !isAuthenticated) return null; // Hide auth-required items if not logged in
+              if (item.authRequired && !currentUser) return null;
+              const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
               return (
                 <SidebarMenuItem key={item.href}>
                    <SidebarMenuButton
                       asChild
                       tooltip={{ children: item.label, side: "right", align: "center" }}
-                      isActive={item.exact ? pathname === item.href : pathname.startsWith(item.href)}
+                      isActive={isActive}
                     >
                       <Link href={item.href}>
                         <item.icon />
@@ -121,13 +135,14 @@ export default function AppClientLayout({
         <SidebarFooter className="p-2 mt-auto">
           <SidebarMenu>
             {footerNavItems.map((item) => {
-               if (item.authRequired && !isAuthenticated) return null;
+               if (item.authRequired && !currentUser) return null;
+               const isActive = pathname.startsWith(item.href);
                return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
                       tooltip={{ children: item.label, side: "right", align: "center" }}
-                      isActive={pathname.startsWith(item.href)}
+                      isActive={isActive}
                     >
                       <Link href={item.href}>
                         <item.icon />
@@ -137,7 +152,7 @@ export default function AppClientLayout({
                   </SidebarMenuItem>
                );
             })}
-             {!isAuthenticated && ( 
+             {!currentUser && (
                 <>
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -168,14 +183,15 @@ export default function AppClientLayout({
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="flex flex-col">
+      <SidebarInset className="flex flex-col bg-background">
+         <AppHeader /> {/* AppHeader is now part of the main content area */}
         {children}
-        {/* Help button can be conditional or link to a help page */}
-        {/* <Button variant="outline" size="icon" className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-card shadow-lg z-50 hover:bg-muted focus-ring border-2 border-primary/50 hover:border-primary text-primary hover:text-primary/90" aria-label="Help & Support">
-          <HelpCircle className="h-7 w-7" />
-        </Button> */}
+        <Button variant="outline" size="icon" className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-card shadow-lg z-50 hover:bg-muted focus-ring border-2 border-primary/50 hover:border-primary text-primary hover:text-primary/90" aria-label="Help & Support">
+          <Compass className="h-7 w-7" />
+        </Button>
       </SidebarInset>
       <Toaster />
     </SidebarProvider>
   );
 }
+```

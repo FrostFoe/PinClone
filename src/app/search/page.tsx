@@ -4,14 +4,14 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AppHeader from '@/components/app-header';
+// AppHeader is now globally available
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import type { Profile } from '@/types';
 import { searchUsers } from '@/services/searchService';
-import { Users, Search as SearchIcon, Frown } from 'lucide-react'; // Frown for no results
+import { Users, Search as SearchIconLucide, Frown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 function SearchPageComponent() {
@@ -26,12 +26,12 @@ function SearchPageComponent() {
   const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
-    setSearchQuery(query); // Sync input with URL query on initial load or URL change
+    setSearchQuery(query); 
     if (query) {
       performSearch(query);
     } else {
       setResults([]);
-      setHasSearched(false); // Reset if query is cleared
+      setHasSearched(false); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
@@ -39,7 +39,7 @@ function SearchPageComponent() {
   const performSearch = async (currentQuery: string) => {
     if (!currentQuery.trim()) {
       setResults([]);
-      setHasSearched(true); // Mark as searched even if query is empty
+      setHasSearched(true); 
       return;
     }
     setIsLoading(true);
@@ -60,26 +60,29 @@ function SearchPageComponent() {
 
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Update URL to reflect new search query, which will trigger useEffect
-    router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
+    } else {
+      router.push('/search'); // Clear query if search input is empty
+    }
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-screen">
-      <AppHeader /> {/* AppHeader now has its own search bar, consider how they interact or if this page needs its own */}
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold font-headline mb-2 text-center sm:text-left">Explore Users</h1>
+    <main className="flex-grow container mx-auto px-4 py-8 animate-fade-in-up">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl sm:text-4xl font-bold font-headline mb-2 text-center sm:text-left">Explore Users</h1>
         <p className="text-muted-foreground mb-8 text-center sm:text-left">Find and connect with other creators on Pinclone.</p>
         
-        <form onSubmit={handleSearchSubmit} className="mb-8 flex gap-2 items-center">
+        <form onSubmit={handleSearchSubmit} className="mb-10 flex gap-2 items-center sticky top-[var(--header-height)] bg-background py-4 z-10">
           <div className="relative flex-grow">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <SearchIconLucide className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
             <Input
               type="search"
               value={searchQuery}
               onChange={handleSearchInputChange}
               placeholder="Search by username or name..."
-              className="w-full h-12 pl-10 pr-4 rounded-full bg-secondary border-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary text-base"
+              className="w-full h-12 pl-11 pr-4 rounded-full bg-secondary border-transparent focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary text-base"
               aria-label="Search users"
             />
           </div>
@@ -89,13 +92,15 @@ function SearchPageComponent() {
         </form>
 
         {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <div key={`skeleton-user-${i}`} className="bg-card p-4 rounded-xl shadow-md flex flex-col items-center text-center space-y-3">
-                <Skeleton className="h-20 w-20 rounded-full bg-muted" />
-                <Skeleton className="h-5 w-3/4 rounded bg-muted" />
-                <Skeleton className="h-4 w-1/2 rounded bg-muted" />
-                <Skeleton className="h-9 w-24 rounded-full bg-muted mt-2" />
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={`skeleton-user-${i}`} className="bg-card p-4 rounded-xl shadow-md flex items-center space-x-4">
+                <Skeleton className="h-16 w-16 rounded-full bg-muted" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-3/5 rounded bg-muted" />
+                  <Skeleton className="h-4 w-2/5 rounded bg-muted" />
+                </div>
+                <Skeleton className="h-9 w-24 rounded-full bg-muted" />
               </div>
             ))}
           </div>
@@ -112,18 +117,20 @@ function SearchPageComponent() {
         )}
         
         {!isLoading && results.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 animate-fade-in-up">
+          <div className="space-y-4 animate-fade-in-up">
             {results.map((user) => (
               <Link key={user.id} href={`/u/${user.username}`} className="block group">
-                <div className="bg-card p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col items-center text-center space-y-2 transform hover:-translate-y-1">
-                  <Avatar className="h-20 w-20 mb-2 border-2 border-transparent group-hover:border-primary transition-colors">
+                <div className="bg-card p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center space-x-4 transform hover:-translate-y-0.5 hover:border-primary border border-transparent">
+                  <Avatar className="h-16 w-16 border-2 border-transparent group-hover:border-primary/30 transition-colors">
                     <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || user.username || 'User'} data-ai-hint="user avatar search result" />
-                    <AvatarFallback className="text-2xl">{user.full_name?.[0] || user.username?.[0] || 'U'}</AvatarFallback>
+                    <AvatarFallback className="text-xl">{user.full_name?.[0]?.toUpperCase() || user.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
-                  <h3 className="text-lg font-semibold text-foreground truncate w-full group-hover:text-primary transition-colors">{user.full_name || user.username}</h3>
-                  {user.username && <p className="text-sm text-muted-foreground">@{user.username}</p>}
-                  {user.bio && <p className="text-xs text-muted-foreground line-clamp-2 h-8">{user.bio}</p>}
-                  <Button variant="outline" size="sm" className="rounded-full mt-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <div className="flex-1 overflow-hidden">
+                    <h3 className="text-lg font-semibold text-foreground truncate group-hover:text-primary transition-colors">{user.full_name || user.username}</h3>
+                    {user.username && <p className="text-sm text-muted-foreground truncate">@{user.username}</p>}
+                    {user.bio && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{user.bio}</p>}
+                  </div>
+                  <Button variant="outline" size="sm" className="rounded-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors ml-auto shrink-0">
                     View Profile
                   </Button>
                 </div>
@@ -139,13 +146,11 @@ function SearchPageComponent() {
                 <p className="text-muted-foreground mt-1">Enter a name or username above to find people on Pinclone.</p>
             </div>
         )}
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
 
-
-// Wrap with Suspense for useSearchParams
 export default function SearchPage() {
   return (
     <Suspense fallback={<SearchPageSkeleton />}>
@@ -156,26 +161,28 @@ export default function SearchPage() {
 
 function SearchPageSkeleton() {
   return (
-     <div className="flex flex-col flex-1 min-h-screen">
-      <AppHeader />
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <Skeleton className="h-10 w-1/3 mb-2 rounded-lg" />
-        <Skeleton className="h-5 w-1/2 mb-8 rounded-lg" />
-        <div className="mb-8 flex gap-2 items-center">
+     <main className="flex-grow container mx-auto px-4 py-8">
+       <div className="max-w-3xl mx-auto">
+        <Skeleton className="h-10 w-1/2 mb-2 rounded-lg" />
+        <Skeleton className="h-5 w-3/4 mb-8 rounded-lg" />
+        <div className="mb-10 flex gap-2 items-center">
           <Skeleton className="h-12 flex-grow rounded-full" />
           <Skeleton className="h-12 w-24 rounded-full" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <div key={`skeleton-user-${i}`} className="bg-card p-4 rounded-xl shadow-md flex flex-col items-center text-center space-y-3">
-                <Skeleton className="h-20 w-20 rounded-full bg-muted" />
-                <Skeleton className="h-5 w-3/4 rounded bg-muted" />
-                <Skeleton className="h-4 w-1/2 rounded bg-muted" />
-                <Skeleton className="h-9 w-24 rounded-full bg-muted mt-2" />
+        <div className="space-y-4">
+           {[...Array(3)].map((_, i) => (
+              <div key={`skeleton-search-user-${i}`} className="bg-card p-4 rounded-xl shadow-md flex items-center space-x-4">
+                <Skeleton className="h-16 w-16 rounded-full bg-muted" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-3/5 rounded bg-muted" />
+                  <Skeleton className="h-4 w-2/5 rounded bg-muted" />
+                </div>
+                <Skeleton className="h-9 w-24 rounded-full bg-muted" />
               </div>
             ))}
-          </div>
-      </main>
-    </div>
+        </div>
+      </div>
+    </main>
   )
 }
+```

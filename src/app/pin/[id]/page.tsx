@@ -18,26 +18,27 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft,
-  Heart,
-  MessageCircle,
-  Upload,
-  MoreHorizontal,
   Maximize2,
-  Search as SearchIcon, // Renamed to avoid conflict
+  Search as SearchIconLucide, // Renamed to avoid conflict
   Link2,
   Download,
   Flag,
   Code2,
   Send,
   Smile,
+  MoreHorizontal,
+  Heart,
+  Share2 as ShareIcon,
 } from 'lucide-react';
 import PinGrid from '@/components/pin-grid';
 import { Skeleton } from '@/components/ui/skeleton';
 import ImageZoomModal from '@/components/image-zoom-modal';
-import { fetchPinById, fetchPinsByUserId } from '@/services/pinService'; // Supabase service
+import { fetchPinById, fetchPinsByUserId } from '@/services/pinService';
 import { useToast } from '@/hooks/use-toast';
+import { formatDistanceToNow } from 'date-fns';
 
-const RELATED_PINS_LIMIT = 15;
+
+const RELATED_PINS_LIMIT = 10;
 
 export default function PinDetailPage() {
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function PinDetailPage() {
   const [pinDetail, setPinDetail] = useState<Pin | null>(null);
   const [relatedPins, setRelatedPins] = useState<Pin[]>([]);
   const [isLoadingPin, setIsLoadingPin] = useState(true);
-  const [isLoadingRelated, setIsLoadingRelated] = useState(false); // Initially false until pinDetail is loaded
+  const [isLoadingRelated, setIsLoadingRelated] = useState(false);
   const [relatedPage, setRelatedPage] = useState(1);
   const [hasMoreRelated, setHasMoreRelated] = useState(true);
   const loaderRef = useRef<HTMLDivElement | null>(null);
@@ -56,55 +57,54 @@ export default function PinDetailPage() {
 
   const loadPinDetails = useCallback(async (id: string) => {
     setIsLoadingPin(true);
+    setPinDetail(null); // Reset on new ID
+    setRelatedPins([]); // Reset related pins
+    setRelatedPage(1);
+    setHasMoreRelated(true);
+
     const { pin, error } = await fetchPinById(id);
     if (error || !pin) {
       toast({ variant: 'destructive', title: 'Error', description: error || 'Pin not found.' });
-      setPinDetail(null);
+      // router.push('/not-found'); // Optionally redirect to a 404 page
     } else {
       setPinDetail(pin);
-      // Start loading related pins once main pin is fetched
       if (pin.user_id) {
-        loadMoreRelatedPins(pin.user_id, 1, true); // Initial load for related pins
+        loadMoreRelatedPins(pin.user_id, 1, true, pin.id);
       } else {
-        setHasMoreRelated(false); // No user_id, no related pins by user
+        setHasMoreRelated(false);
       }
     }
     setIsLoadingPin(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
-  const loadMoreRelatedPins = useCallback(async (userId: string, pageToLoad: number, initialLoad = false) => {
+  const loadMoreRelatedPins = useCallback(async (userId: string, pageToLoad: number, initialLoad = false, currentPinId: string) => {
     if (isLoadingRelated && !initialLoad) return;
     if (!hasMoreRelated && !initialLoad) return;
 
     setIsLoadingRelated(true);
-    // Fetch pins by the uploader of the current pin, excluding the current pin itself.
     const { pins: newPins, error } = await fetchPinsByUserId(userId, pageToLoad, RELATED_PINS_LIMIT);
 
     if (error) {
       toast({ variant: 'destructive', title: 'Error fetching related pins', description: error });
       setHasMoreRelated(false);
     } else {
-      const filteredNewPins = newPins.filter(p => p.id !== pinId);
+      const filteredNewPins = newPins.filter(p => p.id !== currentPinId); // Exclude current pin
       if (filteredNewPins.length > 0) {
         setRelatedPins((prevPins) => initialLoad ? filteredNewPins : [...prevPins, ...filteredNewPins]);
         setRelatedPage(pageToLoad + 1);
         if (newPins.length < RELATED_PINS_LIMIT) setHasMoreRelated(false);
-      } else {
+      } else if (initialLoad && newPins.length <=1 && newPins[0]?.id === currentPinId) { // if only the current pin was returned
+        setHasMoreRelated(false);
+      } else if (newPins.length === 0) {
         setHasMoreRelated(false);
       }
     }
     setIsLoadingRelated(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinId, toast, isLoadingRelated, hasMoreRelated]);
+  }, [toast, isLoadingRelated, hasMoreRelated]);
 
 
   useEffect(() => {
     if (pinId) {
-      setPinDetail(null);
-      setRelatedPins([]);
-      setRelatedPage(1);
-      setHasMoreRelated(true);
       loadPinDetails(pinId);
     }
   }, [pinId, loadPinDetails]);
@@ -112,8 +112,8 @@ export default function PinDetailPage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMoreRelated && !isLoadingRelated && pinDetail?.user_id) {
-          loadMoreRelatedPins(pinDetail.user_id, relatedPage);
+        if (entries[0].isIntersecting && hasMoreRelated && !isLoadingRelated && pinDetail?.user_id && pinDetail.id) {
+          loadMoreRelatedPins(pinDetail.user_id, relatedPage, false, pinDetail.id);
         }
       },
       { threshold: 0.8 }
@@ -135,7 +135,7 @@ export default function PinDetailPage() {
   if (isLoadingPin) {
     return (
       <div className="flex flex-col min-h-screen bg-background animate-fade-in">
-        <div className="sticky top-0 z-20 h-[var(--header-height)] bg-background/80 backdrop-blur-md flex items-center px-4 border-b">
+        <div className="sticky top-[var(--header-height)] z-20 h-[var(--header-height)] bg-background/80 backdrop-blur-md flex items-center px-4 border-b">
             <Skeleton className="h-8 w-8 rounded-full mr-2" />
             <Skeleton className="h-6 w-24" />
             <Skeleton className="h-9 w-20 ml-auto rounded-full" />
@@ -171,7 +171,7 @@ export default function PinDetailPage() {
   if (!pinDetail) {
     return (
       <div className="flex flex-col min-h-screen bg-background justify-center items-center p-8 animate-fade-in">
-        <SearchIcon className="h-24 w-24 text-muted-foreground/50 mb-6" />
+        <SearchIconLucide className="h-24 w-24 text-muted-foreground/50 mb-6" />
         <h1 className="text-3xl font-bold text-foreground mb-2">Pin Not Found</h1>
         <p className="text-lg text-muted-foreground mb-8 text-center">Oops! We couldn't find the pin you were looking for.</p>
         <Button onClick={() => router.push('/')} size="lg" className="rounded-full px-8">
@@ -180,16 +180,16 @@ export default function PinDetailPage() {
       </div>
     );
   }
-  
-  // Use actual width/height from pinDetail if available, otherwise fallback for robustness
+
   const displayWidth = pinDetail.width || 600;
-  const displayHeight = pinDetail.height || (displayWidth * 1.2); // maintain aspect ratio or default
+  const displayHeight = pinDetail.height || (displayWidth * 1.2);
 
 
   return (
     <>
-      <div className="flex flex-col min-h-screen bg-background animate-fade-in">
-        <div className="sticky top-0 z-20 h-[var(--header-height)] bg-background/80 backdrop-blur-md flex items-center px-2 sm:px-4 border-b">
+      <div className="flex flex-col min-h-[calc(100vh-var(--header-height))] bg-background animate-fade-in">
+        {/* Sub-header for Pin Detail Page, sticky under main AppHeader */}
+        <div className="sticky top-[var(--header-height)] z-30 bg-background/90 backdrop-blur-md flex items-center px-2 sm:px-4 border-b h-[var(--header-height)]">
           <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back" className="mr-1 sm:mr-2 rounded-full text-foreground/80 hover:text-primary hover:bg-primary/10">
             <ArrowLeft className="h-6 w-6" />
           </Button>
@@ -201,7 +201,7 @@ export default function PinDetailPage() {
               </Avatar>
               <div className="hidden sm:block">
                 <p className="font-semibold text-sm truncate group-hover:text-primary">{pinDetail.uploader.full_name || pinDetail.uploader.username}</p>
-                <p className="text-xs text-muted-foreground truncate">@{pinDetail.uploader.username}</p>
+                {pinDetail.uploader.username && <p className="text-xs text-muted-foreground truncate">@{pinDetail.uploader.username}</p>}
               </div>
             </Link>
           )}
@@ -220,32 +220,31 @@ export default function PinDetailPage() {
                 <DropdownMenuItem><Code2 className="mr-2 h-4 w-4" /> Get Pin embed code</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {/* Save to board functionality to be added later */}
             <Button size="lg" className="rounded-full px-5 sm:px-6 bg-primary hover:bg-primary/90 text-primary-foreground">Save</Button>
           </div>
         </div>
 
         <main className="flex-grow pb-16">
           <div className="mt-4 sm:mt-8 mx-auto w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl px-2 sm:px-4">
-            <div className="bg-card rounded-3xl shadow-card overflow-hidden">
+            <div className="bg-card rounded-3xl shadow-xl overflow-hidden">
               <div className="flex flex-col lg:flex-row gap-0">
-                <div className="lg:w-[55%] xl:w-1/2 bg-muted/50 flex justify-center items-center p-4 sm:p-6 md:p-8 relative group cursor-pointer" onClick={openZoomModal}>
-                  <Image
-                    src={pinDetail.image_url}
-                    alt={pinDetail.title || 'Pin image'}
-                    width={displayWidth > 800 ? 800 : displayWidth} // Cap display width in this column
-                    height={(displayWidth > 800 ? 800 : displayWidth) / (displayWidth/displayHeight)}
-                    className="rounded-2xl object-contain w-full h-full max-h-[75vh] shadow-md"
-                    data-ai-hint={pinDetail.title || 'pin detail'}
-                    priority
-                  />
+                <div className="lg:w-[55%] xl:w-1/2 bg-muted/30 flex justify-center items-center p-4 sm:p-6 md:p-8 relative group cursor-pointer" onClick={openZoomModal}>
+                  {pinDetail.image_url ? (
+                    <Image
+                      src={pinDetail.image_url}
+                      alt={pinDetail.title || 'Pin image'}
+                      width={displayWidth > 800 ? 800 : displayWidth}
+                      height={(displayWidth > 800 ? 800 : displayWidth) / (displayWidth/displayHeight)}
+                      className="rounded-2xl object-contain w-full h-full max-h-[75vh] shadow-md"
+                      data-ai-hint={pinDetail.title || 'pin detail'}
+                      priority
+                    />
+                  ) : <Skeleton className="w-full h-[400px] rounded-2xl" />}
                   <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 flex flex-col gap-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <Button variant="secondary" size="icon" className="rounded-full h-10 w-10 bg-black/40 hover:bg-black/60 text-white border-none shadow-md" aria-label="Zoom image" onClick={(e) => {e.stopPropagation(); openZoomModal();}}>
                       <Maximize2 className="h-5 w-5" />
                     </Button>
-                    {/* Visual Search might be a future feature */}
-                    {/* <Button variant="secondary" size="icon" className="rounded-full h-10 w-10 bg-black/40 hover:bg-black/60 text-white border-none shadow-md" aria-label="Search similar images" onClick={(e) => e.stopPropagation()}>
-                      <SearchIcon className="h-5 w-5" />
-                    </Button> */}
                   </div>
                 </div>
 
@@ -262,28 +261,17 @@ export default function PinDetailPage() {
                         </Avatar>
                         <div>
                           <p className="font-semibold text-md group-hover:text-primary transition-colors">{pinDetail.uploader.full_name || pinDetail.uploader.username}</p>
-                          <p className="text-sm text-muted-foreground">@{pinDetail.uploader.username}</p>
+                          {pinDetail.uploader.username && <p className="text-sm text-muted-foreground">@{pinDetail.uploader.username}</p>}
                         </div>
                       </Link>
                       <Button variant="secondary" className="rounded-full px-5 h-10 text-sm font-medium hover:bg-secondary/80 focus-ring">Follow</Button>
                     </div>
                   )}
                   
-                  {/* Tags might be added later
-                  {pinDetail.tags && pinDetail.tags.length > 0 && (
-                    <div className="mb-6">
-                        <h3 className="font-semibold text-sm text-muted-foreground mb-2">Tags</h3>
-                        <div className="flex flex-wrap gap-2">
-                            {pinDetail.tags.map(tag => (
-                                <Button key={tag} variant="outline" size="sm" className="rounded-full text-xs px-3 py-1 hover:bg-secondary/50 hover:border-primary/50">
-                                    {tag}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                  )}
-                  */}
-
+                  <div className="text-xs text-muted-foreground mb-6">
+                    Uploaded {formatDistanceToNow(new Date(pinDetail.created_at), { addSuffix: true })}
+                  </div>
+                  
                   <div className="mt-auto">
                     <h3 className="font-semibold text-lg mb-3">Comments (0)</h3>
                     <div className="space-y-4 mb-6 max-h-60 overflow-y-auto pr-2">
@@ -333,8 +321,8 @@ export default function PinDetailPage() {
               {!hasMoreRelated && relatedPins.length > 0 && (
                 <p className="text-center text-muted-foreground font-medium py-10 text-lg">✨ You've explored all related pins! ✨</p>
               )}
-              {!hasMoreRelated && relatedPins.length === 0 && !isLoadingRelated && pinDetail && (
-                <p className="text-center text-muted-foreground py-8">No more related pins found.</p>
+               {!hasMoreRelated && relatedPins.length === 0 && !isLoadingRelated && pinDetail && (
+                <p className="text-center text-muted-foreground py-8">No more pins from this uploader.</p>
               )}
             </div>
           )}
@@ -344,3 +332,4 @@ export default function PinDetailPage() {
     </>
   );
 }
+```

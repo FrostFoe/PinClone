@@ -1,13 +1,33 @@
 
-'use server'; // Or remove if only used client-side with client Supabase instance
+'use server';
 
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { createSupabaseServerClient } from '@/lib/supabase/server'; // Use server client for server actions
 import type { Pin, PinWithUploader } from '@/types';
+import type { TablesInsert } from '@/types/supabase';
 
-// For client-side fetching
-const supabase = createSupabaseBrowserClient();
+// Helper to map Supabase pin data (with joined profile) to our Pin type
+function mapSupabasePin(supabasePin: PinWithUploader): Pin {
+  return {
+    id: supabasePin.id,
+    user_id: supabasePin.user_id || '', 
+    image_url: supabasePin.image_url,
+    title: supabasePin.title,
+    description: supabasePin.description,
+    created_at: supabasePin.created_at,
+    width: supabasePin.width || 300, 
+    height: supabasePin.height || 400,
+    uploader: supabasePin.profiles ? {
+      username: supabasePin.profiles.username || 'unknown',
+      avatar_url: supabasePin.profiles.avatar_url, // Allow null for default handling in component
+      full_name: supabasePin.profiles.full_name, // Allow null
+    } : undefined, // Uploader can be undefined if profile is not joined or doesn't exist
+    // likes: supabasePin.likes_count || 0, // Example if you add likes
+  };
+}
+
 
 export async function fetchAllPins(page: number = 1, limit: number = 20): Promise<{ pins: Pin[], error: string | null }> {
+  const supabase = createSupabaseServerClient(); // Create client instance per request
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -26,20 +46,22 @@ export async function fetchAllPins(page: number = 1, limit: number = 20): Promis
       .range(from, to);
 
     if (error) {
-      console.error('Error fetching pins:', error);
+      console.error('Error fetching pins:', error.message);
       return { pins: [], error: error.message };
     }
     
     const pins = data?.map(mapSupabasePin) || [];
     return { pins, error: null };
 
-  } catch (e) {
-    console.error('Unexpected error fetching pins:', e);
+  } catch (e: any) {
+    console.error('Unexpected error fetching pins:', e.message);
     return { pins: [], error: 'An unexpected error occurred.' };
   }
 }
 
 export async function fetchPinById(id: string): Promise<{ pin: Pin | null, error: string | null }> {
+  const supabase = createSupabaseServerClient();
+  if (!id) return { pin: null, error: 'Pin ID is required.' };
   try {
     const { data, error } = await supabase
       .from('pins')
@@ -55,19 +77,24 @@ export async function fetchPinById(id: string): Promise<{ pin: Pin | null, error
       .single();
 
     if (error) {
-      console.error('Error fetching pin by ID:', error);
+      if (error.code === 'PGRST116') { // No rows found
+        return { pin: null, error: 'Pin not found.' };
+      }
+      console.error('Error fetching pin by ID:', error.message);
       return { pin: null, error: error.message };
     }
     
     return { pin: data ? mapSupabasePin(data) : null, error: null };
 
-  } catch (e) {
-    console.error('Unexpected error fetching pin by ID:', e);
+  } catch (e: any) {
+    console.error('Unexpected error fetching pin by ID:', e.message);
     return { pin: null, error: 'An unexpected error occurred.' };
   }
 }
 
 export async function fetchPinsByUserId(userId: string, page: number = 1, limit: number = 20): Promise<{ pins: Pin[], error: string | null }> {
+  const supabase = createSupabaseServerClient();
+  if (!userId) return { pins: [], error: 'User ID is required.' };
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   try {
@@ -86,124 +113,78 @@ export async function fetchPinsByUserId(userId: string, page: number = 1, limit:
       .range(from, to);
       
     if (error) {
-      console.error('Error fetching pins by user ID:', error);
+      console.error('Error fetching pins by user ID:', error.message);
       return { pins: [], error: error.message };
     }
 
     const pins = data?.map(mapSupabasePin) || [];
     return { pins, error: null };
 
-  } catch (e) {
-    console.error('Unexpected error fetching pins by user ID:', e);
+  } catch (e: any) {
+    console.error('Unexpected error fetching pins by user ID:', e.message);
     return { pins: [], error: 'An unexpected error occurred.' };
   }
 }
 
+export async function createPin(pinData: Omit<TablesInsert<'pins'>, 'id' | 'created_at' | 'user_id'>): Promise<{ pin: Pin | null, error: string | null }> {
+  const supabase = createSupabaseServerClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { pin: null, error: 'User must be authenticated to create a pin.' };
+  }
 
-// Helper to map Supabase pin data (with joined profile) to our Pin type
-function mapSupabasePin(supabasePin: PinWithUploader): Pin {
-  return {
-    id: supabasePin.id,
-    user_id: supabasePin.user_id || '', // Should always exist
-    image_url: supabasePin.image_url,
-    title: supabasePin.title,
-    description: supabasePin.description,
-    created_at: supabasePin.created_at,
-    width: supabasePin.width || 300, // Default width if not in DB
-    height: supabasePin.height || 400, // Default height if not in DB
-    uploader: supabasePin.profiles ? {
-      username: supabasePin.profiles.username || 'unknown',
-      avatar_url: supabasePin.profiles.avatar_url || `https://placehold.co/40x40.png?text=U`,
-      full_name: supabasePin.profiles.full_name || 'Unknown User',
-    } : {
-      username: 'unknown',
-      avatar_url: `https://placehold.co/40x40.png?text=U`,
-      full_name: 'Unknown User',
-    },
-    // likes: supabasePin.likes_count || 0, // If you add a likes feature
+  if (!pinData.image_url) {
+    return { pin: null, error: 'Image URL is required.' };
+  }
+  if (!pinData.width || !pinData.height) {
+    return { pin: null, error: 'Image dimensions (width and height) are required.' };
+  }
+
+
+  const newPin: TablesInsert<'pins'> = {
+    ...pinData,
+    user_id: user.id,
   };
+
+  try {
+    const { data, error } = await supabase
+      .from('pins')
+      .insert(newPin)
+      .select(`
+        *,
+        profiles (
+          username,
+          avatar_url,
+          full_name
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error creating pin:', error.message);
+      return { pin: null, error: `Failed to create pin: ${error.message}` };
+    }
+
+    // Re-fetch the uploader profile information separately if it's not returned by default insert.
+    // For simplicity, assuming profiles join might not always work on insert, let's map with what we have.
+    // A more robust solution might re-query the pin or ensure the insert returns the join.
+    if (data) {
+        const createdPin = data as PinWithUploader; // Cast to include potential profile
+        // If profile is not returned directly from insert, fetch it
+        if (!createdPin.profiles && user.id) {
+            const {data: profileData } = await supabase.from('profiles').select('username, avatar_url, full_name').eq('id', user.id).single();
+            if (profileData) {
+                createdPin.profiles = profileData;
+            }
+        }
+        return { pin: mapSupabasePin(createdPin), error: null };
+    }
+    return { pin: null, error: 'Failed to create pin or retrieve created pin data.' };
+
+  } catch (e: any) {
+    console.error('Unexpected error creating pin:', e.message);
+    return { pin: null, error: `An unexpected error occurred: ${e.message}` };
+  }
 }
-
-/*
-* Bonus: Infinite Scroll
-* To implement infinite scroll, you'd typically:
-* 1. In your page component (e.g., HomePage), maintain a `page` state.
-* 2. Use an IntersectionObserver to detect when the user scrolls near the bottom of the list.
-* 3. When detected, increment the `page` state and call `fetchAllPins(newPage, PINS_PER_PAGE)`.
-* 4. Append the newly fetched pins to your existing `pins` state array.
-* 5. Keep track of `hasMore` state by checking if the fetchPins function returns fewer pins than `PINS_PER_PAGE`.
-*
-* Example hook (simplified):
-*
-* import { useState, useEffect, useCallback, useRef } from 'react';
-*
-* function useInfiniteScroll(fetchFunction, initialPage = 1, limit = 20) {
-*   const [items, setItems] = useState([]);
-*   const [page, setPage] = useState(initialPage);
-*   const [hasMore, setHasMore] = useState(true);
-*   const [loading, setLoading] = useState(false);
-*   const loaderRef = useRef(null);
-*
-*   const loadMore = useCallback(async () => {
-*     if (loading || !hasMore) return;
-*     setLoading(true);
-*     const { data: newItems, error } = await fetchFunction(page, limit); // Adjust based on your service
-*     if (error) { /* handle error * / }
-*     setItems(prev => [...prev, ...newItems]);
-*     setPage(prev => prev + 1);
-*     setHasMore(newItems.length === limit);
-*     setLoading(false);
-*   }, [loading, hasMore, page, fetchFunction, limit]);
-*
-*   useEffect(() => {
-*     const observer = new IntersectionObserver(
-*       entries => {
-*         if (entries[0].isIntersecting) loadMore();
-*       },
-*       { threshold: 1.0 }
-*     );
-*     if (loaderRef.current) observer.observe(loaderRef.current);
-*     return () => {
-*       if (loaderRef.current) observer.unobserve(loaderRef.current);
-*     };
-*   }, [loadMore]);
-*
-*   return { items, loading, hasMore, loaderRef, loadMore };
-* }
-*/
-
-/*
-* Bonus: Optimistic Updates
-* For actions like creating a pin, liking, or updating a profile:
-* 1. When the user performs an action (e.g., clicks "Save" on profile edit):
-*    a. Immediately update the local UI state with the new (optimistic) data.
-*       For example, if editing profile name, update the displayed name instantly.
-*    b. Make the actual API call to Supabase in the background.
-* 2. If the Supabase call is successful:
-*    a. The UI is already correct. You might want to re-fetch or ensure consistency if needed, but often not necessary for simple updates.
-* 3. If the Supabase call fails:
-*    a. Revert the UI state back to what it was before the optimistic update.
-*    b. Show an error message (e.g., using a toast).
-*
-* This makes the app feel much faster and more responsive.
-* Libraries like React Query or SWR have built-in support for optimistic updates.
-*
-* Example for profile update (conceptual):
-*
-* const [profile, setProfile] = useState(initialProfile);
-* const { toast } = useToast();
-*
-* const handleSaveProfile = async (newProfileData) => {
-*   const oldProfile = { ...profile };
-*   setProfile(prev => ({ ...prev, ...newProfileData })); // Optimistic update
-*
-*   const { error } = await updateProfile(userId, newProfileData); // Call Supabase service
-*
-*   if (error) {
-*     setProfile(oldProfile); // Revert on error
-*     toast({ variant: "destructive", title: "Failed to update profile", description: error.message });
-*   } else {
-*     toast({ title: "Profile updated!" });
-*   }
-* };
-*/
+```

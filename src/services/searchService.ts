@@ -1,31 +1,29 @@
 
-'use server'; // Or remove if client-side only
+'use server'; 
 
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import type { Profile } from '@/types';
 
-const supabase = createSupabaseBrowserClient();
-
 export async function searchUsers(query: string): Promise<{ users: Profile[], error: string | null }> {
+  const supabase = createSupabaseServerClient();
   if (!query || query.trim().length === 0) {
-    return { users: [], error: null }; // Return empty if query is empty
+    return { users: [], error: null }; 
   }
   try {
-    // Search by username OR full_name
-    // Using .or() for Supabase query
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
-      .limit(10); // Add a limit for search results
+      .or(`username.ilike.%${query.trim()}%,full_name.ilike.%${query.trim()}%`) // Trim query for search
+      .limit(10); 
 
     if (error) {
-      console.error('Error searching users:', error);
+      console.error('Error searching users:', error.message);
       return { users: [], error: error.message };
     }
     return { users: data || [], error: null };
-  } catch (e) {
-    console.error('Unexpected error searching users:', e);
+  } catch (e: any) {
+    console.error('Unexpected error searching users:', e.message);
     return { users: [], error: 'An unexpected error occurred during search.' };
   }
 }
+```
