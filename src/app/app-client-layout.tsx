@@ -29,8 +29,8 @@ export default function AppClientLayout({
 
   const navItems = [
     { href: '/', label: 'Home', icon: Home, exact: true },
-    { href: '/create', label: 'Create', icon: PlusSquare }, // Assuming /create will exist
-    { href: '/search', label: 'Explore', icon: Search }, // Example, could be different
+    { href: '/create', label: 'Create', icon: PlusSquare },
+    { href: '/search', label: 'Explore', icon: Search },
     { href: '/profile', label: 'Profile', icon: User },
   ];
 
@@ -38,7 +38,6 @@ export default function AppClientLayout({
     { href: '/settings', label: 'Settings', icon: Settings },
   ];
 
-  // A simple check for auth pages to hide sidebar/header, can be more robust
   const isAuthPage = pathname === '/login' || pathname === '/signup';
 
   if (isAuthPage) {
@@ -63,15 +62,15 @@ export default function AppClientLayout({
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href}>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip={{ children: item.label, side: "right", align: "center" }} 
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={{ children: item.label, side: "right", align: "center" }}
                     isActive={item.exact ? pathname === item.href : pathname.startsWith(item.href)}
                   >
-                    <a>
+                    <>
                       <item.icon />
                       <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">{item.label}</span>
-                    </a>
+                    </>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
@@ -83,41 +82,46 @@ export default function AppClientLayout({
             {footerNavItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href}>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     asChild
                     tooltip={{ children: item.label, side: "right", align: "center" }}
                     isActive={pathname.startsWith(item.href)}
                   >
-                    <a>
+                    <>
                       <item.icon />
                       <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">{item.label}</span>
-                    </a>
+                    </>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
             ))}
-             {/* Placeholder for Login/Signup if not authenticated */}
-             {!true && ( // Replace `!true` with actual auth check
+             {!true && ( 
                 <>
                 <SidebarMenuItem>
                     <Link href="/login">
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                         asChild
                         tooltip={{ children: "Login", side: "right", align: "center" }}
                         isActive={pathname === '/login'}
                     >
-                        <a><LogIn /><span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Login</span></a>
+                        <>
+                            <LogIn />
+                            <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Login</span>
+                        </>
                     </SidebarMenuButton>
                     </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                     <Link href="/signup">
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                         asChild
                         tooltip={{ children: "Sign Up", side: "right", align: "center" }}
                         isActive={pathname === '/signup'}
                     >
-                        <a><FileSignature /><span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Sign Up</span></a>
+                        <>
+                            <FileSignature />
+                            <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">Sign Up</span>
+                        </>
                     </SidebarMenuButton>
                     </Link>
                 </SidebarMenuItem>
@@ -126,7 +130,7 @@ export default function AppClientLayout({
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="flex flex-col"> {/* Ensure SidebarInset is flex column */}
+      <SidebarInset className="flex flex-col">
         {children}
         <Button variant="outline" size="icon" className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-card shadow-lg z-50 hover:bg-muted focus-ring border-2 border-primary/50 hover:border-primary text-primary hover:text-primary/90" aria-label="Help & Support">
           <HelpCircle className="h-7 w-7" />

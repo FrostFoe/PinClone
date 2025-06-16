@@ -5,6 +5,7 @@ import type { Pin } from '@/types';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link'; // Added missing import
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -34,7 +35,7 @@ import {
 } from 'lucide-react';
 import PinGrid from '@/components/pin-grid';
 import { Skeleton } from '@/components/ui/skeleton';
-import ImageZoomModal from '@/components/image-zoom-modal'; // Re-introduce for actual zoom
+import ImageZoomModal from '@/components/image-zoom-modal';
 
 const PINS_PER_PAGE_RELATED = 15;
 
@@ -85,7 +86,6 @@ const generateRandomRelatedPin = (id: number, mainPinHint: string = ''): Pin => 
   const avatarPlaceholders = ['CA', 'CS', 'IH', 'AS'];
   
   let chosenHint = hints[Math.floor(Math.random() * hints.length)];
-  // Try to make related pins somewhat relevant
   if (mainPinHint && Math.random() > 0.5) {
     const mainHintWords = mainPinHint.toLowerCase().split(' ');
     const relatedHintAttempt = hints.find(h => h.toLowerCase().split(' ').some(hw => mainHintWords.includes(hw)));
@@ -141,8 +141,8 @@ export default function PinDetailPage() {
   useEffect(() => {
     if (pinId) {
       setIsLoadingPin(true);
-      setPinDetail(null); // Clear previous pin
-      setRelatedPins([]); // Clear related pins
+      setPinDetail(null);
+      setRelatedPins([]);
       setRelatedPage(0);
       setHasMoreRelated(true);
 
@@ -150,13 +150,13 @@ export default function PinDetailPage() {
         setPinDetail(data);
         setIsLoadingPin(false);
         if (data) {
-          loadMoreRelatedPins(data, 0); // Initial load for related pins
+          loadMoreRelatedPins(data, 0);
         } else {
-          setIsLoadingRelated(false); // No pin, so no related pins
+          setIsLoadingRelated(false);
         }
       });
     }
-  }, [pinId]);
+  }, [pinId]); // Removed loadMoreRelatedPins from dependency array
 
   const loadMoreRelatedPins = useCallback(async (currentPin: Pin | null, pageToLoad: number) => {
     if (!hasMoreRelated || !currentPin) return;
@@ -170,7 +170,7 @@ export default function PinDetailPage() {
       setHasMoreRelated(false);
     }
     setIsLoadingRelated(false);
-  }, [hasMoreRelated]);
+  }, [hasMoreRelated]); // Removed isLoadingRelated, pinDetail, relatedPage
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -199,7 +199,6 @@ export default function PinDetailPage() {
   if (isLoadingPin) {
     return (
       <div className="flex flex-col min-h-screen bg-background animate-fade-in">
-         {/* Simplified Skeleton for header bar */}
         <div className="sticky top-0 z-20 h-[var(--header-height)] bg-background/80 backdrop-blur-md flex items-center px-4 border-b">
             <Skeleton className="h-8 w-8 rounded-full mr-2" />
             <Skeleton className="h-6 w-24" />
@@ -252,7 +251,6 @@ export default function PinDetailPage() {
   return (
     <>
       <div className="flex flex-col min-h-screen bg-background animate-fade-in">
-        {/* Top action bar - simplified and integrated */}
         <div className="sticky top-0 z-20 h-[var(--header-height)] bg-background/80 backdrop-blur-md flex items-center px-2 sm:px-4 border-b">
           <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back" className="mr-1 sm:mr-2 rounded-full text-foreground/80 hover:text-primary hover:bg-primary/10">
             <ArrowLeft className="h-6 w-6" />
@@ -292,8 +290,7 @@ export default function PinDetailPage() {
           <div className="mt-4 sm:mt-8 mx-auto w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl px-2 sm:px-4">
             <div className="bg-card rounded-3xl shadow-card overflow-hidden">
               <div className="flex flex-col lg:flex-row gap-0">
-                {/* Left: Image */}
-                <div className="lg:w-[55%] xl:w-1/2 bg-muted/50 flex justify-center items-center p-4 sm:p-6 md:p-8 relative cursor-pointer" onClick={openZoomModal}>
+                <div className="lg:w-[55%] xl:w-1/2 bg-muted/50 flex justify-center items-center p-4 sm:p-6 md:p-8 relative group cursor-pointer" onClick={openZoomModal}>
                   <Image
                     src={`https://placehold.co/${pinDetail.width}x${pinDetail.height}.png`}
                     alt={pinDetail.alt}
@@ -314,7 +311,6 @@ export default function PinDetailPage() {
                   </div>
                 </div>
 
-                {/* Right: Details */}
                 <div className="lg:w-[45%] xl:w-1/2 flex flex-col p-4 sm:p-6 md:p-8">
                   {pinDetail.title && <h1 className="text-2xl sm:text-3xl font-bold font-headline leading-tight mb-3">{pinDetail.title}</h1>}
                   {pinDetail.description && <p className="text-base text-foreground/80 mb-6 leading-relaxed">{pinDetail.description}</p>}
@@ -348,10 +344,9 @@ export default function PinDetailPage() {
                     </div>
                   )}
 
-                  <div className="mt-auto"> {/* Pushes comments to bottom */}
-                    <h3 className="font-semibold text-lg mb-3">Comments ({/* Add count here */ '0'})</h3>
+                  <div className="mt-auto">
+                    <h3 className="font-semibold text-lg mb-3">Comments (0)</h3>
                     <div className="space-y-4 mb-6 max-h-60 overflow-y-auto pr-2">
-                      {/* Placeholder for actual comments list */}
                       <p className="text-sm text-muted-foreground">No comments yet. Be the first to share your thoughts!</p>
                     </div>
                     <div className="flex items-start gap-3">
@@ -377,7 +372,6 @@ export default function PinDetailPage() {
             </div>
           </div>
 
-          {/* "More like this" section */}
           {(relatedPins.length > 0 || isLoadingRelated) && (
             <div className="mt-12 sm:mt-16 container mx-auto px-2 sm:px-4">
               <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center font-headline">More like this</h2>
