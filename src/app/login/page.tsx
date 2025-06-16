@@ -7,16 +7,43 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import PincloneLogo from '@/components/pinclone-logo';
-import { Mail, Lock, LogIn as LogInIcon } from 'lucide-react';
+import { Mail, Lock, LogIn as LogInIcon, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const supabase = createSupabaseBrowserClient();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // Handle login logic here
-    console.log('Login submitted');
-    router.push('/'); // Redirect to homepage after login
+    setIsLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setIsLoading(false);
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: error.message || 'Please check your credentials and try again.',
+      });
+    } else {
+      toast({
+        title: 'Login Successful!',
+        description: "Welcome back! You're being redirected...",
+      });
+      router.push('/'); // Redirect to homepage after login
+      router.refresh(); // Important to refresh server components that depend on auth state
+    }
   };
 
   return (
@@ -45,8 +72,11 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="pl-10 h-12 text-base focus-ring"
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -55,6 +85,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-between">
               <Label htmlFor="password" className="text-foreground/80">Password</Label>
               <div className="text-sm">
+                {/* Password reset functionality to be implemented */}
                 <Link href="#" className="font-medium text-primary hover:text-primary/80">
                   Forgot your password?
                 </Link>
@@ -68,15 +99,19 @@ export default function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="pl-10 h-12 text-base focus-ring"
+                disabled={isLoading}
               />
             </div>
           </div>
 
           <div>
-            <Button type="submit" className="w-full h-12 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 focus-ring">
-              <LogInIcon className="mr-2 h-5 w-5" /> Log in
+            <Button type="submit" className="w-full h-12 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 focus-ring" disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogInIcon className="mr-2 h-5 w-5" />}
+              {isLoading ? 'Logging in...' : 'Log in'}
             </Button>
           </div>
         </form>

@@ -1,7 +1,7 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -16,6 +16,14 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Add your Supabase project's image hostname here if using Supabase Storage
+      // Example:
+      // {
+      //   protocol: 'https',
+      //   hostname: 'yourprojectid.supabase.co', // Replace with your Supabase project ID
+      //   port: '',
+      //   pathname: '/storage/v1/object/public/**',
+      // },
     ],
   },
 };
