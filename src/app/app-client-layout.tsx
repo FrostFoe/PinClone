@@ -62,7 +62,7 @@ export default function AppClientLayout({
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} passHref legacyBehavior>
+                <Link href={item.href}>
                   <SidebarMenuButton 
                     asChild 
                     tooltip={{ children: item.label, side: "right", align: "center" }} 
@@ -82,7 +82,7 @@ export default function AppClientLayout({
           <SidebarMenu>
             {footerNavItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} passHref legacyBehavior>
+                <Link href={item.href}>
                   <SidebarMenuButton 
                     asChild
                     tooltip={{ children: item.label, side: "right", align: "center" }}
@@ -100,7 +100,7 @@ export default function AppClientLayout({
              {!true && ( // Replace `!true` with actual auth check
                 <>
                 <SidebarMenuItem>
-                    <Link href="/login" passHref legacyBehavior>
+                    <Link href="/login">
                     <SidebarMenuButton 
                         asChild
                         tooltip={{ children: "Login", side: "right", align: "center" }}
@@ -111,7 +111,7 @@ export default function AppClientLayout({
                     </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                    <Link href="/signup" passHref legacyBehavior>
+                    <Link href="/signup">
                     <SidebarMenuButton 
                         asChild
                         tooltip={{ children: "Sign Up", side: "right", align: "center" }}
