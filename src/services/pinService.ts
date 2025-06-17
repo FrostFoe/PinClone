@@ -9,7 +9,21 @@ import type { TablesInsert } from "@/types/supabase";
 export async function mapSupabasePin(
   supabasePin: PinWithUploaderFromSupabase,
 ): Promise<Pin> {
-  // The !inner join in the query means uploader_profile should always exist.
+  // The !inner join in the query means uploader_profile should ideally exist.
+  // However, we add a check for robustness.
+  if (!supabasePin.uploader_profile) {
+    console.error(
+      `Error in mapSupabasePin: uploader_profile is missing for pin ID ${supabasePin.id}. This might indicate an issue with RLS, the join, or unexpected data.`,
+      supabasePin,
+    );
+    // Depending on desired behavior, you could throw an error or return a Pin with partial uploader info.
+    // For now, let's proceed but log heavily. This state should ideally not be reached.
+    // This will likely cause issues downstream if uploader info is critical.
+    throw new Error(
+      `Critical data integrity issue: Uploader profile missing for pin ${supabasePin.id}`,
+    );
+  }
+
   const profileData = supabasePin.uploader_profile;
 
   return {
@@ -20,10 +34,10 @@ export async function mapSupabasePin(
     description: supabasePin.description,
     created_at: supabasePin.created_at,
     updated_at: supabasePin.updated_at,
-    width: supabasePin.width,
-    height: supabasePin.height,
+    width: supabasePin.width, // NOT NULL in DB
+    height: supabasePin.height, // NOT NULL in DB
     uploader: {
-      username: profileData.username, // This is fine as profileData.username is string
+      username: profileData.username, // NOT NULL in DB
       avatar_url: profileData.avatar_url,
       full_name: profileData.full_name,
     },
@@ -63,7 +77,7 @@ export async function fetchAllPins(
       .range(from, to);
 
     if (error) {
-      console.error("Error fetching all pins:", error.message, error);
+      console.error("Error fetching all pins from Supabase:", error.message, error);
       return { pins: [], error: error.message };
     }
 
@@ -76,8 +90,8 @@ export async function fetchAllPins(
       : [];
     return { pins, error: null };
   } catch (e: any) {
-    console.error("Unexpected error in fetchAllPins:", (e as Error).message, e);
-    return { pins: [], error: "An unexpected error occurred." };
+    console.error("Unexpected error in fetchAllPins service:", (e as Error).message, e);
+    return { pins: [], error: "An unexpected server error occurred." };
   }
 }
 
@@ -113,34 +127,31 @@ export async function fetchPinById(
     if (error) {
       if (error.code === "PGRST116") {
         // PGRST116: "Searched for a single row, but found no rows"
-        // This is an expected case if the pin doesn't exist, so less verbose logging.
-        // console.log(`Pin not found for ID ${id}. PGRST116.`);
         return { pin: null, error: "Pin not found." };
       }
-      // Log the full error object for other types of errors
-      console.error(`Error fetching pin by ID ${id}:`, error.message, error);
+      console.error(`Error fetching pin by ID ${id} from Supabase:`, error.message, error);
       return { pin: null, error: error.message };
     }
 
     if (!data) {
-      // This case should ideally be covered by PGRST116 or other errors from .single(),
-      // but as a safeguard if Supabase behaves unexpectedly (e.g. RLS issue not raising specific error)
       console.error(`Pin data is null for ID ${id} after fetch, though no specific error was returned by Supabase.`);
-      return { pin: null, error: "Pin data is unexpectedly null after fetch."};
+      return { pin: null, error: "Pin data is unexpectedly null after fetch." };
     }
 
     return {
-        pin: await mapSupabasePin(data as PinWithUploaderFromSupabase),
-        error: null,
+      pin: await mapSupabasePin(data as PinWithUploaderFromSupabase),
+      error: null,
     };
-
   } catch (e: any) {
     console.error(
-      "Unexpected error caught in fetchPinById for ID " + id + ":",
+      `Unexpected error caught in fetchPinById service for ID ${id}:`,
       (e as Error).message,
-      e
+      e,
     );
-    return { pin: null, error: "An unexpected server error occurred while fetching the pin." };
+    return {
+      pin: null,
+      error: "An unexpected server error occurred while fetching the pin.",
+    };
   }
 }
 
@@ -182,8 +193,9 @@ export async function fetchPinsByUserId(
 
     if (error) {
       console.error(
-        `Error fetching pins for user ID ${userId}:`,
-        error.message, error
+        `Error fetching pins for user ID ${userId} from Supabase:`,
+        error.message,
+        error,
       );
       return { pins: [], error: error.message };
     }
@@ -197,10 +209,11 @@ export async function fetchPinsByUserId(
     return { pins, error: null };
   } catch (e: any) {
     console.error(
-      "Unexpected error in fetchPinsByUserId for user ID " + userId + ":",
-      (e as Error).message, e
+      `Unexpected error in fetchPinsByUserId service for user ID ${userId}:`,
+      (e as Error).message,
+      e,
     );
-    return { pins: [], error: "An unexpected error occurred." };
+    return { pins: [], error: "An unexpected server error occurred." };
   }
 }
 
@@ -228,7 +241,7 @@ export async function createPin(pinData: {
   }
 
   const newPin: TablesInsert<"pins"> = {
-    user_id: user.id, // This should be the profile ID which is same as auth.user.id
+    user_id: user.id,
     image_url: pinData.image_url,
     title: pinData.title,
     description: pinData.description,
@@ -261,11 +274,11 @@ export async function createPin(pinData: {
       .single();
 
     if (insertError) {
-      console.error("Error creating pin:", insertError.message, insertError);
+      console.error("Error creating pin in Supabase:", insertError.message, insertError);
       return { pin: null, error: insertError.message };
     }
     if (!insertedPinData) {
-      console.error("Failed to create pin or retrieve its data after insert, insertedPinData is null.");
+      console.error("Failed to create pin or retrieve its data after insert; insertedPinData is null.");
       return { pin: null, error: "Failed to create pin or retrieve its data." };
     }
 
@@ -276,7 +289,7 @@ export async function createPin(pinData: {
       error: null,
     };
   } catch (e: any) {
-    console.error("Unexpected error in createPin:", (e as Error).message, e);
-    return { pin: null, error: "An unexpected error occurred." };
+    console.error("Unexpected error in createPin service:", (e as Error).message, e);
+    return { pin: null, error: "An unexpected server error occurred." };
   }
 }
