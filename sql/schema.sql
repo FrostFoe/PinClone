@@ -1,196 +1,188 @@
--- ⚠️ WARNING: This script deletes ALL data in the public schema.
--- Make sure to backup any important data before running this.
-
--- Drop existing schema and objects if they exist to ensure a clean slate
-DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA public;
-
--- Grant usage on the new public schema to postgres and supabase_admin
-GRANT ALL ON SCHEMA public TO postgres;
-GRANT ALL ON SCHEMA public TO supabase_admin;
-
--- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions; -- Changed to extensions schema
-
+-- #############################################################################
+-- # CRITICAL SETUP NOTE: CREATE SUPABASE STORAGE BUCKETS                    #
+-- #############################################################################
+-- Before your application can upload images, you MUST create the following
+-- Storage buckets in your Supabase project dashboard:
 --
+-- 1. Bucket Name: `pins`
+--    - Go to Supabase Dashboard -> Storage -> Create new bucket
+--    - Name: `pins`
+--    - Public bucket: YES (Toggle to ON) - This is the simplest setup.
+--      (Alternatively, configure RLS policies for insert by authenticated users
+--       and select by everyone if you need private buckets).
+--
+-- 2. Bucket Name: `avatars`
+--    - Go to Supabase Dashboard -> Storage -> Create new bucket
+--    - Name: `avatars`
+--    - Public bucket: YES (Toggle to ON)
+--      (Alternatively, configure RLS policies for insert/update by the owner
+--       and select by everyone).
+--
+-- FAILURE TO CREATE THESE BUCKETS WILL RESULT IN "Bucket not found" ERRORS.
+-- #############################################################################
+
+-- Drop existing objects in the public schema
+drop schema if exists public cascade;
+create schema public;
+
+-- Enable UUID generation
+create extension if not exists "uuid-ossp" with schema public;
+
+-- Function to automatically update 'updated_at' timestamp
+create or replace function public.update_updated_at_column()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
 -- TABLE: profiles
--- Stores user-specific public information.
---
-CREATE TABLE public.profiles (
-  id uuid PRIMARY KEY, -- Linked to auth.users.id
-  username TEXT NOT NULL UNIQUE,
-  full_name TEXT,
-  bio TEXT,
-  avatar_url TEXT,
-  website TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+-- Stores public user profile information, linked to auth.users
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  username text not null unique check (char_length(username) >= 3 and username ~ '^[a-zA-Z0-9_.]+$'),
+  full_name text,
+  bio text,
+  avatar_url text, -- URL to the avatar image in Supabase Storage
+  website text,
+  created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null
 );
 
--- RLS: Enable RLS for profiles table
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- Trigger to update 'updated_at' for profiles
+create trigger handle_profile_updated_at before update on public.profiles
+  for each row execute procedure public.update_updated_at_column();
 
--- RLS: Profiles are publicly viewable.
-CREATE POLICY "Public profiles are viewable by everyone."
-  ON public.profiles FOR SELECT
-  USING (true);
+comment on table public.profiles is 'Public profile information for users.';
+comment on column public.profiles.id is 'References auth.users.id.';
 
--- RLS: Users can insert their own profile.
-CREATE POLICY "Users can insert their own profile."
-  ON public.profiles FOR INSERT
-  WITH CHECK (auth.uid() = id);
-
--- RLS: Users can update their own profile.
-CREATE POLICY "Users can update their own profile."
-  ON public.profiles FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
--- Constraint: Link profiles.id to Supabase Auth user.id
-ALTER TABLE public.profiles
-  ADD CONSTRAINT fk_auth_user FOREIGN KEY (id)
-  REFERENCES auth.users(id) ON DELETE CASCADE;
-
---
 -- TABLE: pins
--- Stores information about each pin.
---
-CREATE TABLE public.pins (
-  id uuid PRIMARY KEY DEFAULT extensions.uuid_generate_v4(), -- Changed to extensions.uuid_generate_v4()
-  user_id uuid NOT NULL,
-  title TEXT,
-  description TEXT,
-  image_url TEXT NOT NULL,
-  width INTEGER NOT NULL,
-  height INTEGER NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-
-  CONSTRAINT fk_pins_user FOREIGN KEY (user_id)
-    REFERENCES public.profiles(id) ON DELETE CASCADE
+-- Stores information about pins created by users
+create table public.pins (
+  id uuid primary key default public.uuid_generate_v4(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  title text,
+  description text,
+  image_url text not null, -- URL to the pin image in Supabase Storage
+  width integer not null,
+  height integer not null,
+  created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null
 );
 
--- RLS: Enable RLS for pins table
-ALTER TABLE public.pins ENABLE ROW LEVEL SECURITY;
+-- Trigger to update 'updated_at' for pins
+create trigger handle_pin_updated_at before update on public.pins
+  for each row execute procedure public.update_updated_at_column();
 
--- RLS: Pins are publicly viewable.
-CREATE POLICY "Pins are viewable by everyone."
-  ON public.pins FOR SELECT
-  USING (true);
+comment on table public.pins is 'Individual pins created by users.';
 
--- RLS: Authenticated users can insert pins.
-CREATE POLICY "Authenticated users can create pins."
-  ON public.pins FOR INSERT
-  WITH CHECK (auth.role() = 'authenticated');
-
--- RLS: Users can update their own pins.
-CREATE POLICY "Users can update their own pins."
-  ON public.pins FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- RLS: Users can delete their own pins.
-CREATE POLICY "Users can delete their own pins."
-  ON public.pins FOR DELETE
-  USING (auth.uid() = user_id);
-
---
 -- INDEXES
---
-CREATE INDEX idx_profiles_username ON public.profiles(LOWER(username)); -- Index for case-insensitive username search
-CREATE INDEX idx_pins_user_id ON public.pins(user_id);
-CREATE INDEX idx_pins_created_at ON public.pins(created_at DESC);
+create index idx_profiles_username_search on public.profiles using gin (username gin_trgm_ops);
+create index idx_pins_user_id on public.pins(user_id);
+create index idx_pins_title_search on public.pins using gin (title gin_trgm_ops);
+create index idx_pins_description_search on public.pins using gin (description gin_trgm_ops);
 
---
--- TRIGGER FUNCTION: update_updated_at_column
--- This function updates the 'updated_at' column to the current timestamp.
---
-CREATE OR REPLACE FUNCTION public.update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
---
--- TRIGGERS for updated_at
---
-CREATE TRIGGER trigger_profiles_updated_at
-  BEFORE UPDATE ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
-CREATE TRIGGER trigger_pins_updated_at
-  BEFORE UPDATE ON public.pins
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
---
--- FUNCTION: handle_new_user
--- This function creates a profile entry for new users.
---
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-DECLARE
-  base_username TEXT;
-  new_username TEXT;
-  counter INTEGER := 0;
-BEGIN
-  -- Attempt to use the part of the email before the '@' as a base username
-  base_username := SPLIT_PART(NEW.email, '@', 1);
-  -- Basic sanitization: remove non-alphanumeric characters, except underscores and dots
-  base_username := REGEXP_REPLACE(base_username, '[^a-zA-Z0-9_.]', '', 'g');
-  -- Ensure username is not too short
-  IF LENGTH(base_username) < 3 THEN
+-- Function to create a profile entry when a new user signs up
+create or replace function public.handle_new_user()
+returns trigger as $$
+declare
+  base_username text;
+  final_username text;
+  username_suffix text;
+  counter integer := 0;
+begin
+  -- Attempt to use the part of the email before the @ symbol as a base username
+  base_username := split_part(new.email, '@', 1);
+  -- Remove characters not allowed in usernames (allow alphanumeric, underscore, dot)
+  base_username := regexp_replace(base_username, '[^a-zA-Z0-9_.]', '', 'g');
+  -- Ensure username is at least 3 characters
+  if char_length(base_username) < 3 then
     base_username := base_username || 'user';
-  END IF;
-  -- Ensure username is not too long
-  base_username := SUBSTRING(base_username FROM 1 FOR 20);
+  end if;
+  -- Ensure username is not too long (e.g., max 20 chars for the base part)
+  base_username := substr(base_username, 1, 20);
 
-  new_username := base_username;
-
-  -- Check for username uniqueness and append a counter if needed
-  WHILE EXISTS (SELECT 1 FROM public.profiles WHERE username = new_username) LOOP
+  final_username := base_username;
+  -- Check if username exists and append a number if it does
+  while exists (select 1 from public.profiles where username = final_username) loop
     counter := counter + 1;
-    new_username := base_username || counter::TEXT;
-    -- If the appended counter makes it too long, truncate base_username further
-    IF LENGTH(new_username) > 24 THEN -- Max length for username (e.g. 24 chars)
-        new_username := SUBSTRING(base_username FROM 1 FOR (24 - LENGTH(counter::TEXT))) || counter::TEXT;
-    END IF;
-  END LOOP;
+    username_suffix := to_char(counter, 'FM999'); -- FM removes leading spaces
+    final_username := base_username || username_suffix;
+    -- Safety break if somehow too many users have similar names (highly unlikely)
+    if counter > 1000 then
+      final_username := base_username || public.uuid_generate_v4()::text; -- Fallback to UUID part
+      exit;
+    end if;
+  end loop;
 
-  INSERT INTO public.profiles (id, username, full_name, avatar_url)
-  VALUES (
-    NEW.id,
-    new_username,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', SPLIT_PART(NEW.email, '@', 1)), -- Use full_name from metadata or email part
-    NEW.raw_user_meta_data->>'avatar_url' -- Use avatar_url from metadata if available
+  insert into public.profiles (id, username, full_name, avatar_url)
+  values (
+    new.id,
+    final_username,
+    new.raw_user_meta_data->>'full_name', -- Get full_name from metadata if provided at signup
+    new.raw_user_meta_data->>'avatar_url' -- Get avatar_url from metadata if provided (e.g. OAuth)
   );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+  return new;
+end;
+$$ language plpgsql security definer;
 
---
--- TRIGGER: on_auth_user_created
--- This trigger calls handle_new_user when a new user is created in auth.users.
---
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+-- Trigger to call handle_new_user on new user creation in auth.users
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 
--- Grant necessary permissions to Supabase roles
--- (Supabase handles this well, but explicitly stating for clarity/completeness)
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;
-GRANT INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated; -- More specific RLS will control this
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
 
--- COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
-COMMENT ON TABLE public.profiles IS 'Stores public user profile information, linked to auth.users.';
-COMMENT ON COLUMN public.profiles.id IS 'User ID, references auth.users.id.';
-COMMENT ON COLUMN public.profiles.username IS 'Unique public username for the user.';
-COMMENT ON TABLE public.pins IS 'Stores information about visual pins created by users.';
-COMMENT ON COLUMN public.pins.user_id IS 'The user who created the pin, references profiles.id.';
+-- ROW LEVEL SECURITY (RLS) POLICIES
 
--- Note: Advanced features like Full-Text Search (FTS) vectors, tags, likes, comments, boards etc.
--- would require additional tables and potentially GIN/GIST indexes on tsvector columns.
--- This schema provides a foundational setup.
+-- Profiles RLS
+alter table public.profiles enable row level security;
+
+create policy "Public profiles are viewable by everyone."
+  on public.profiles for select
+  using ( true );
+
+create policy "Users can insert their own profile."
+  on public.profiles for insert
+  with check ( auth.uid() = id );
+
+create policy "Users can update their own profile."
+  on public.profiles for update
+  using ( auth.uid() = id )
+  with check ( auth.uid() = id );
+
+create policy "Users can delete their own profile."
+  on public.profiles for delete
+  using ( auth.uid() = id );
+
+-- Pins RLS
+alter table public.pins enable row level security;
+
+create policy "Pins are viewable by everyone."
+  on public.pins for select
+  using ( true );
+
+create policy "Authenticated users can create pins."
+  on public.pins for insert
+  with check ( auth.role() = 'authenticated' and auth.uid() = user_id );
+
+create policy "Users can update their own pins."
+  on public.pins for update
+  using ( auth.uid() = user_id )
+  with check ( auth.uid() = user_id );
+
+create policy "Users can delete their own pins."
+  on public.pins for delete
+  using ( auth.uid() = user_id );
+
+-- Note on Storage RLS:
+-- Policies for Supabase Storage are managed separately in the Supabase dashboard
+-- under Storage -> Policies for each bucket.
+-- For 'pins' bucket (if not public):
+--   - Authenticated users can upload (insert).
+--   - Everyone can read (select).
+-- For 'avatars' bucket (if not public):
+--   - Users can upload/update their own avatar (insert, update where auth.uid() matches user_id in path).
+--   - Everyone can read (select).
+-- If buckets are set to "Public", these RLS policies on Storage are not strictly needed for read access.
+```
