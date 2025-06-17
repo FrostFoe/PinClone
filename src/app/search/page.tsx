@@ -185,4 +185,3 @@ function SearchPageSkeleton() {
     </main>
   )
 }
-```

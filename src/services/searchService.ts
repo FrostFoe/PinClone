@@ -13,17 +13,14 @@ export async function searchUsers(query: string): Promise<{ users: Profile[], er
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .or(`username.ilike.%${query.trim()}%,full_name.ilike.%${query.trim()}%`) // Trim query for search
+      .or(`username.ilike.%${query.trim()}%,full_name.ilike.%${query.trim()}%`) 
       .limit(10); 
 
     if (error) {
-      console.error('Error searching users:', error.message);
       return { users: [], error: error.message };
     }
     return { users: data || [], error: null };
   } catch (e: any) {
-    console.error('Unexpected error searching users:', e.message);
     return { users: [], error: 'An unexpected error occurred during search.' };
   }
 }
-```

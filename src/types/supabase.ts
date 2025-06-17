@@ -198,4 +198,3 @@ export type Enums<
 // Ensure this file is updated by running:
 // npx supabase gen types typescript --project-id <your-project-id> --schema public > src/types/supabase.ts
 // Based on your provided schemas.
-```

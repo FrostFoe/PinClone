@@ -32,4 +32,3 @@ export interface PinWithUploader extends Omit<Pin, 'uploader' | 'width' | 'heigh
     full_name: string | null;
   } | null; // Profile can be null if join fails or user deleted (though FK should prevent orphan pins)
 }
-```

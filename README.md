@@ -14,26 +14,26 @@ This is a Next.js starter project for Pinclone, integrated with Supabase for bac
 2.  **Environment Variables:**
     *   Create a `.env.local` file in the root of your project.
     *   Add your Supabase project URL and Anon key:
-        ```
+        
         NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
         NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-        ```
+        
 
 3.  **Install Dependencies:**
-    ```bash
+    bash
     npm install
-    ```
+    
 
 4.  **Run the Development Server:**
-    ```bash
+    bash
     npm run dev
-    ```
+    
     The app will be available at `http://localhost:9002` (or your configured port).
 
 ## Supabase Schemas
 
 ### Pins Table
-```sql
+sql
 CREATE TABLE pins (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -72,10 +72,10 @@ CREATE POLICY "Allow owner to delete their pins" ON pins
 CREATE INDEX idx_pins_user_id ON pins(user_id);
 CREATE INDEX idx_pins_created_at ON pins(created_at DESC);
 
-```
+
 
 ### Profiles Table
-```sql
+sql
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   username TEXT UNIQUE,
@@ -135,7 +135,7 @@ CREATE TRIGGER on_auth_user_created
 -- Add indexes
 CREATE INDEX idx_profiles_username ON profiles(username);
 
-```
+
 
 ## Project Structure
 
@@ -167,4 +167,3 @@ CREATE INDEX idx_profiles_username ON profiles(username);
 *   Add more sophisticated search filters (e.g., by tags, colors).
 *   Implement image processing/resizing on upload for performance.
 *   Add Framer Motion for more advanced animations.
-```

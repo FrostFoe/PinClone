@@ -17,12 +17,10 @@ export async function fetchProfileByUsername(username: string): Promise<{ profil
 
     if (error) {
       if (error.code === 'PGRST116') return { profile: null, error: 'Profile not found.' };
-      console.error('Error fetching profile by username:', error.message);
       return { profile: null, error: error.message };
     }
     return { profile: data, error: null };
   } catch (e: any) {
-    console.error('Unexpected error fetching profile by username:', e.message);
     return { profile: null, error: 'An unexpected error occurred.' };
   }
 }
@@ -39,12 +37,10 @@ export async function fetchProfileById(userId: string): Promise<{ profile: Profi
 
     if (error) {
       if (error.code === 'PGRST116') return { profile: null, error: 'Profile not found for this user ID.' };
-      console.error('Error fetching profile by ID:', error.message);
       return { profile: null, error: error.message };
     }
     return { profile: data, error: null };
   } catch (e: any) {
-    console.error('Unexpected error fetching profile by ID:', e.message);
     return { profile: null, error: 'An unexpected error occurred.' };
   }
 }
@@ -53,7 +49,6 @@ export async function updateProfile(userId: string, updates: TablesUpdate<'profi
   const supabase = createSupabaseServerClient();
   if (!userId) return { profile: null, error: 'User ID is required for update.' };
   
-  // Ensure username is not empty if provided
   if (updates.username !== undefined && (updates.username === null || updates.username.trim() === '')) {
     return { profile: null, error: 'Username cannot be empty.'};
   }
@@ -67,15 +62,13 @@ export async function updateProfile(userId: string, updates: TablesUpdate<'profi
       .single();
 
     if (error) {
-      console.error('Error updating profile:', error.message);
-      if (error.message.includes('profiles_username_key')) { // Or check for specific error code for unique constraint
+      if (error.message.includes('profiles_username_key')) { 
         return { profile: null, error: 'This username is already taken.' };
       }
       return { profile: null, error: error.message };
     }
     return { profile: data, error: null };
   } catch (e: any) {
-    console.error('Unexpected error updating profile:', e.message);
     return { profile: null, error: 'An unexpected error occurred.' };
   }
 }
@@ -89,17 +82,14 @@ export async function checkUsernameAvailability(username: string): Promise<{ ava
     const { data, error } = await supabase
       .from('profiles')
       .select('username')
-      .ilike('username', username.trim()) // Ensure we check trimmed username
+      .ilike('username', username.trim()) 
       .maybeSingle(); 
 
     if (error) {
-      console.error('Error checking username:', error.message);
       return { available: false, error: error.message };
     }
     return { available: !data, error: null }; 
   } catch (e: any) {
-    console.error('Unexpected error checking username:', e.message);
     return { available: false, error: 'An unexpected error occurred while checking username.' };
   }
 }
-```

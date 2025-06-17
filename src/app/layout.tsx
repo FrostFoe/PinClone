@@ -9,17 +9,16 @@ export const metadata: Metadata = {
   applicationName: 'Pinclone',
   authors: [{ name: 'Firebase Studio AI' }],
   keywords: ['pinterest clone', 'visual discovery', 'image sharing', 'ideas', 'inspiration', 'supabase', 'nextjs'],
-  // themeColor: '#E60023', // Primary color for browser UI theming, can also be set in manifest
-  manifest: '/manifest.json', // Example, you'd need to create this
+  manifest: '/manifest.json', 
   icons: {
-    icon: '/favicon.ico', // Example
-    apple: '/apple-touch-icon.png', // Example
+    icon: '/favicon.ico', 
+    apple: '/apple-touch-icon.png', 
   }
 };
 
 export const viewport: Viewport = {
-  themeColor: '#E60023', // Primary color for browser UI theming
-  colorScheme: 'light dark', // Supports both light and dark mode based on user preference
+  themeColor: '#E60023', 
+  colorScheme: 'light dark', 
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,

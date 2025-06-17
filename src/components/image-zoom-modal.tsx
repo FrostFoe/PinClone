@@ -140,4 +140,3 @@ export default function ImageZoomModal({ pin, isOpen, onClose }: ImageZoomModalP
     </Dialog>
   );
 }
-```

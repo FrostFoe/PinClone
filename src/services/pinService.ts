@@ -18,16 +18,15 @@ function mapSupabasePin(supabasePin: PinWithUploader): Pin {
     height: supabasePin.height || 400,
     uploader: supabasePin.profiles ? {
       username: supabasePin.profiles.username || 'unknown',
-      avatar_url: supabasePin.profiles.avatar_url, // Allow null for default handling in component
-      full_name: supabasePin.profiles.full_name, // Allow null
-    } : undefined, // Uploader can be undefined if profile is not joined or doesn't exist
-    // likes: supabasePin.likes_count || 0, // Example if you add likes
+      avatar_url: supabasePin.profiles.avatar_url, 
+      full_name: supabasePin.profiles.full_name, 
+    } : undefined, 
   };
 }
 
 
 export async function fetchAllPins(page: number = 1, limit: number = 20): Promise<{ pins: Pin[], error: string | null }> {
-  const supabase = createSupabaseServerClient(); // Create client instance per request
+  const supabase = createSupabaseServerClient(); 
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -46,7 +45,6 @@ export async function fetchAllPins(page: number = 1, limit: number = 20): Promis
       .range(from, to);
 
     if (error) {
-      console.error('Error fetching pins:', error.message);
       return { pins: [], error: error.message };
     }
     
@@ -54,7 +52,6 @@ export async function fetchAllPins(page: number = 1, limit: number = 20): Promis
     return { pins, error: null };
 
   } catch (e: any) {
-    console.error('Unexpected error fetching pins:', e.message);
     return { pins: [], error: 'An unexpected error occurred.' };
   }
 }
@@ -77,17 +74,15 @@ export async function fetchPinById(id: string): Promise<{ pin: Pin | null, error
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') { // No rows found
+      if (error.code === 'PGRST116') { 
         return { pin: null, error: 'Pin not found.' };
       }
-      console.error('Error fetching pin by ID:', error.message);
       return { pin: null, error: error.message };
     }
     
     return { pin: data ? mapSupabasePin(data) : null, error: null };
 
   } catch (e: any) {
-    console.error('Unexpected error fetching pin by ID:', e.message);
     return { pin: null, error: 'An unexpected error occurred.' };
   }
 }
@@ -113,7 +108,6 @@ export async function fetchPinsByUserId(userId: string, page: number = 1, limit:
       .range(from, to);
       
     if (error) {
-      console.error('Error fetching pins by user ID:', error.message);
       return { pins: [], error: error.message };
     }
 
@@ -121,7 +115,6 @@ export async function fetchPinsByUserId(userId: string, page: number = 1, limit:
     return { pins, error: null };
 
   } catch (e: any) {
-    console.error('Unexpected error fetching pins by user ID:', e.message);
     return { pins: [], error: 'An unexpected error occurred.' };
   }
 }
@@ -162,16 +155,11 @@ export async function createPin(pinData: Omit<TablesInsert<'pins'>, 'id' | 'crea
       .single();
 
     if (error) {
-      console.error('Error creating pin:', error.message);
       return { pin: null, error: `Failed to create pin: ${error.message}` };
     }
 
-    // Re-fetch the uploader profile information separately if it's not returned by default insert.
-    // For simplicity, assuming profiles join might not always work on insert, let's map with what we have.
-    // A more robust solution might re-query the pin or ensure the insert returns the join.
     if (data) {
-        const createdPin = data as PinWithUploader; // Cast to include potential profile
-        // If profile is not returned directly from insert, fetch it
+        const createdPin = data as PinWithUploader; 
         if (!createdPin.profiles && user.id) {
             const {data: profileData } = await supabase.from('profiles').select('username, avatar_url, full_name').eq('id', user.id).single();
             if (profileData) {
@@ -183,8 +171,6 @@ export async function createPin(pinData: Omit<TablesInsert<'pins'>, 'id' | 'crea
     return { pin: null, error: 'Failed to create pin or retrieve created pin data.' };
 
   } catch (e: any) {
-    console.error('Unexpected error creating pin:', e.message);
     return { pin: null, error: `An unexpected error occurred: ${e.message}` };
   }
 }
-```

@@ -101,4 +101,3 @@ export default function PinCard({ pin, onClick, className, showDetails = false, 
     </Link>
   );
 }
-```
