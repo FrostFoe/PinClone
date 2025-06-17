@@ -1,7 +1,9 @@
+
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation"; // useParams can be used here
+import { useParams, useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import PinGrid from "@/components/pin-grid";
 import type { Pin, Profile } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -15,10 +17,13 @@ import {
   CheckCircle,
   Users,
   ExternalLink,
+  LogIn,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchProfileByUsername } from "@/services/profileService";
 import { fetchPinsByUserId } from "@/services/pinService";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 const PINS_PER_PAGE = 18;
 
@@ -30,9 +35,12 @@ export default function UserPublicProfileClientContent({
   params: routeParams,
 }: UserPublicProfileClientContentProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const username = routeParams?.username as string;
+  const supabase = createSupabaseBrowserClient();
 
+  const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
   const [userData, setUserData] = useState<Profile | null>(null);
   const [pins, setPins] = useState<Pin[]>([]);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
@@ -41,7 +49,24 @@ export default function UserPublicProfileClientContent({
   const [hasMorePins, setHasMorePins] = useState(true);
   const pinsLoaderRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState("created");
-  const [isFollowing, setIsFollowing] = useState(false); // Placeholder state
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setCurrentUser(session?.user ?? null);
+    };
+    getSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
 
   const loadMorePins = useCallback(
     async (
@@ -62,9 +87,8 @@ export default function UserPublicProfileClientContent({
           PINS_PER_PAGE,
         );
       } else {
-        // Placeholder for "Saved" tab if implemented
         fetchedData = { pins: [], error: null };
-        setHasMorePins(false); // For now, assume "Saved" has no content or is not paged
+        setHasMorePins(false);
       }
       const { pins: newPins, error } = fetchedData;
 
@@ -106,14 +130,12 @@ export default function UserPublicProfileClientContent({
           title: "User Not Found",
           description: error || `Profile for @${uname} could not be loaded.`,
         });
-        // Potentially redirect or show a "not found" state within this component
-        router.push("/not-found"); // Redirect to not-found page
+        router.push("/not-found");
       } else {
         setUserData(profile);
         if (typeof document !== "undefined") {
           document.title = `${profile.full_name || profile.username}'s Profile | Pinclone`;
         }
-        // Initial pins load will be triggered by useEffect watching userData.id & activeTab
       }
       setIsLoadingUser(false);
     },
@@ -133,8 +155,7 @@ export default function UserPublicProfileClientContent({
       setHasMorePins(true);
       loadMorePins(userData.id, 1, true, activeTab);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData?.id, activeTab]); // loadMorePins removed
+  }, [userData?.id, activeTab, loadMorePins]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -144,7 +165,7 @@ export default function UserPublicProfileClientContent({
           hasMorePins &&
           !isLoadingPins &&
           userData?.id &&
-          activeTab === "created" // Only paginate for "created" tab for now
+          activeTab === "created"
         ) {
           loadMorePins(userData.id, pinsPage, false, activeTab);
         }
@@ -170,7 +191,14 @@ export default function UserPublicProfileClientContent({
     router.push(`/pin/${pin.id}`);
   };
 
-  const handleFollowToggle = () => setIsFollowing(!isFollowing);
+  const handleFollowToggle = () => {
+    if (!currentUser) {
+      router.push(`/login?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    setIsFollowing(!isFollowing);
+    // Add actual follow/unfollow logic here
+  };
 
   if (isLoadingUser) {
     return (
@@ -204,8 +232,6 @@ export default function UserPublicProfileClientContent({
   }
 
   if (!userData) {
-    // This state will be hit if loadUserProfile sets userData to null due to an error
-    // and before a redirect might happen (or if no redirect is programmed for that error).
     return (
       <div className="flex-1 flex flex-col">
         <div className="flex-grow flex flex-col items-center justify-center text-center p-8">
@@ -229,6 +255,8 @@ export default function UserPublicProfileClientContent({
   }
 
   const coverPhotoUrl = `https://placehold.co/1600x400.png`;
+  const isOwnProfile = currentUser?.id === userData.id;
+
 
   return (
     <div className="flex-1 flex flex-col animate-fade-in-up pt-8">
@@ -281,28 +309,36 @@ export default function UserPublicProfileClientContent({
               <ExternalLink className="h-3 w-3" />
             </a>
           )}
-          <div className="mt-6 flex gap-2">
-            <Button
-              variant={isFollowing ? "secondary" : "default"}
-              size="lg"
-              className="rounded-full px-6 font-medium focus-ring transition-all duration-150 ease-in-out"
-              onClick={handleFollowToggle}
-            >
-              {isFollowing ? (
-                <CheckCircle className="mr-2 h-4 w-4" />
-              ) : (
-                <UserPlus className="mr-2 h-4 w-4" />
+          {!isOwnProfile && (
+            <div className="mt-6 flex gap-2">
+                <Button
+                variant={isFollowing ? "secondary" : "default"}
+                size="lg"
+                className="rounded-full px-6 font-medium focus-ring transition-all duration-150 ease-in-out"
+                onClick={handleFollowToggle}
+                >
+                {currentUser ? (
+                    isFollowing ? (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    ) : (
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    )
+                ) : (
+                    <LogIn className="mr-2 h-4 w-4" />
+                )}
+                {currentUser ? (isFollowing ? "Following" : "Follow") : "Login to Follow"}
+                </Button>
+              {currentUser && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="rounded-full px-6 font-medium hover:bg-secondary/50 focus-ring"
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" /> Message
+                </Button>
               )}
-              {isFollowing ? "Following" : "Follow"}
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="rounded-full px-6 font-medium hover:bg-secondary/50 focus-ring"
-            >
-              <MessageSquare className="mr-2 h-4 w-4" /> Message
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
       <div className="flex-1 container mx-auto px-0 sm:px-4 pb-8">
@@ -369,6 +405,11 @@ export default function UserPublicProfileClientContent({
               <p className="text-muted-foreground mt-1">
                 @{userData.username} hasn't saved any pins.
               </p>
+               {currentUser && currentUser.id === userData.id && (
+                 <Button asChild className="mt-6 rounded-full px-6" size="lg">
+                    <Link href="/">Explore Pins</Link>
+                 </Button>
+               )}
             </div>
           </TabsContent>
         </Tabs>

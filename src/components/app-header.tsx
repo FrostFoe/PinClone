@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -10,6 +11,7 @@ import {
   LogOut,
   GripVertical,
   Loader2,
+  PlusSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,8 +33,13 @@ import type { Profile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import PincloneLogo from "./pinclone-logo";
 import { signOutClient } from "@/lib/auth/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
-export default function AppHeader() {
+interface AppHeaderProps {
+  currentUser: SupabaseUser | null;
+}
+
+export default function AppHeader({ currentUser }: AppHeaderProps) {
   const { isMobile, toggleSidebar } = useSidebar();
   const router = useRouter();
   const pathname = usePathname();
@@ -43,24 +50,22 @@ export default function AppHeader() {
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(
     null,
   );
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isLoadingUserProfile, setIsLoadingUserProfile] = useState(true); // For profile data, not auth state
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchQuery, setSearchQuery] = useState(
     searchParamsHook.get("q") || "",
   );
-  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(
+    currentUser?.email || null,
+  );
 
   useEffect(() => {
     setSearchQuery(searchParamsHook.get("q") || "");
   }, [searchParamsHook]);
 
   useEffect(() => {
-    const fetchUserAndProfile = async (
-      userId: string,
-      userEmail: string | undefined,
-    ) => {
-      setIsLoadingUser(true); // Set loading true at the start of fetch
-      setCurrentUserEmail(userEmail || null);
+    const fetchUserProfile = async (userId: string) => {
+      setIsLoadingUserProfile(true);
       try {
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
@@ -69,7 +74,6 @@ export default function AppHeader() {
           .single();
 
         if (profileError && profileError.code !== "PGRST116") {
-          // PGRST116 means no rows found, which is fine if profile not created yet
           console.error(
             "AppHeader: Supabase error fetching profile:",
             profileError.message,
@@ -85,40 +89,19 @@ export default function AppHeader() {
         );
         setCurrentUserProfile(null);
       } finally {
-        setIsLoadingUser(false);
+        setIsLoadingUserProfile(false);
       }
     };
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          await fetchUserAndProfile(session.user.id, session.user.email);
-        } else {
-          setCurrentUserProfile(null);
-          setCurrentUserEmail(null);
-          setIsLoadingUser(false); // Ensure loading is false if no session
-        }
-        if (event === "SIGNED_OUT" || event === "USER_DELETED") {
-          router.refresh(); // Force refresh to update server components dependent on auth
-        }
-      },
-    );
-
-    // Initial fetch
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await fetchUserAndProfile(session.user.id, session.user.email);
-      } else {
-        setCurrentUserProfile(null);
-        setCurrentUserEmail(null);
-        setIsLoadingUser(false); // Ensure loading is false if no session
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [supabase, router]); // Added router to dependencies
+    if (currentUser) {
+      setCurrentUserEmail(currentUser.email || null);
+      fetchUserProfile(currentUser.id);
+    } else {
+      setCurrentUserProfile(null);
+      setCurrentUserEmail(null);
+      setIsLoadingUserProfile(false);
+    }
+  }, [currentUser, supabase]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -135,7 +118,7 @@ export default function AppHeader() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
-      // router.push('/login'); // This is now handled by AppClientLayout's onAuthStateChange -> router.refresh()
+      // router.push('/login'); // AppClientLayout handles redirect via router.refresh()
     }
   };
 
@@ -145,9 +128,9 @@ export default function AppHeader() {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     } else {
       if (pathname === "/search") {
-        router.push("/search"); // Clear query if already on search page and query is empty
+        router.push("/search");
       } else {
-        router.push("/search"); // Go to search page even if query is empty
+        router.push("/search");
       }
     }
   };
@@ -156,7 +139,7 @@ export default function AppHeader() {
     currentUserProfile?.full_name?.[0]?.toUpperCase() ||
     currentUserProfile?.username?.[0]?.toUpperCase() ||
     currentUserEmail?.[0]?.toUpperCase() ||
-    "P"; // Fallback to P for Pinclone
+    "P";
   const isHomePage = pathname === "/";
 
   return (
@@ -191,11 +174,11 @@ export default function AppHeader() {
           >
             Home
           </Button>
-          {currentUserProfile && ( // Show create button only if user has a profile (implies logged in)
+          {currentUser && (
             <Button
-              variant="ghost"
+              variant={pathname === "/create" ? "default" : "ghost"}
               size="default"
-              className="rounded-full px-4 font-medium text-base text-foreground hover:bg-secondary hidden md:inline-flex"
+              className={`rounded-full px-4 font-medium text-base hidden md:inline-flex ${pathname === "/create" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-foreground hover:bg-secondary"}`}
               onClick={() => router.push("/create")}
             >
               Create
@@ -218,7 +201,7 @@ export default function AppHeader() {
         </div>
 
         <nav className="flex items-center gap-0.5 sm:gap-1.5">
-          {currentUserProfile && ( // Show icons only if user has a profile
+          {currentUser && (
             <>
               <Button
                 variant="ghost"
@@ -239,9 +222,9 @@ export default function AppHeader() {
             </>
           )}
 
-          {isLoadingUser ? (
+          {isLoadingUserProfile && currentUser ? ( // Show skeleton only if loading profile for an auth user
             <Skeleton className="h-10 w-10 rounded-full" />
-          ) : currentUserProfile || currentUserEmail ? ( // User is logged in (has email) or has a profile
+          ) : currentUser ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -303,7 +286,7 @@ export default function AppHeader() {
                           </p>
                         )}
                         {currentUserEmail &&
-                          !currentUserProfile?.username && ( // Show email if username not yet set
+                          !currentUserProfile?.username && (
                             <p className="text-xs text-muted-foreground truncate">
                               {currentUserEmail}
                             </p>
@@ -340,7 +323,6 @@ export default function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            // User is not logged in
             <>
               <Button
                 asChild
@@ -348,10 +330,10 @@ export default function AppHeader() {
                 variant="ghost"
                 className="rounded-full px-4 h-10 hidden sm:inline-flex"
               >
-                <Link href="/login">Log In</Link>
+                <Link href={`/login?next=${encodeURIComponent(pathname)}`}>Log In</Link>
               </Button>
               <Button asChild size="sm" className="rounded-full px-4 h-10">
-                <Link href="/signup">Sign Up</Link>
+                <Link href={`/signup?next=${encodeURIComponent(pathname)}`}>Sign Up</Link>
               </Button>
             </>
           )}

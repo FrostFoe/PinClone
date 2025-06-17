@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from "react";
@@ -29,19 +30,19 @@ import {
   Loader2,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import AppHeader from "@/components/app-header";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 
 const AUTH_ROUTES = ["/login", "/signup"];
-const PROTECTED_ROUTES = ["/create", "/profile", "/settings/profile"];
-const PUBLIC_ONLY_ROUTES = ["/login", "/signup"]; // Routes only accessible when logged out
+// Routes that absolutely require authentication
+const PROTECTED_ROUTES = ["/create", "/settings/profile", "/profile"];
+// Routes that should only be accessible if the user is logged OUT (e.g., login, signup)
+const PUBLIC_ONLY_ROUTES = ["/login", "/signup"];
 
-// Routes that are public but might show different content if logged in (don't force redirect if unauth)
-const PUBLIC_ROUTES_WITH_AUTH_CONTENT = ["/", "/search"];
-const PIN_DETAIL_REGEX = /^\/pin\/[a-zA-Z0-9-]+$/;
-const USER_PROFILE_REGEX = /^\/u\/[a-zA-Z0-9_.-]+$/;
+// Note: Pages like `/`, `/search`, `/pin/[id]`, `/u/[username]` are now public by default.
+// Their content might change based on auth state (e.g., show "Save" button if logged in).
 
 export default function AppClientLayout({
   children,
@@ -66,10 +67,8 @@ export default function AppClientLayout({
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       const newCurrentUser = session?.user ?? null;
       setCurrentUser(newCurrentUser);
-      setIsLoadingAuth(false); // Auth state determined by listener
+      setIsLoadingAuth(false);
 
-      // Refresh server components that might depend on auth state
-      // This is important after login/logout for UI to update correctly
       if (
         event === "SIGNED_IN" ||
         event === "SIGNED_OUT" ||
@@ -80,7 +79,6 @@ export default function AppClientLayout({
       }
     });
 
-    // Initial session check
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
@@ -91,10 +89,10 @@ export default function AppClientLayout({
           "Error getting initial session in AppClientLayout:",
           error,
         );
-        setCurrentUser(null); // Ensure currentUser is null if session fetch fails
+        setCurrentUser(null);
       })
       .finally(() => {
-        setIsLoadingAuth(false); // Always set loading to false
+        setIsLoadingAuth(false);
       });
 
     return () => {
@@ -103,20 +101,15 @@ export default function AppClientLayout({
   }, [supabase, router]);
 
   useEffect(() => {
-    if (isLoadingAuth) return; // Don't run redirect logic until auth state is known
+    if (isLoadingAuth) return;
 
     if (currentUser) {
-      // User is logged in
       if (isPublicOnlyRoute) {
-        // If logged in and on a public-only page (login/signup), redirect to home
         const nextUrl = searchParams.get("next") || "/";
         router.push(nextUrl);
       }
     } else {
-      // User is not logged in
       if (isProtectedRoute) {
-        // If not logged in and on a protected route, redirect to login
-        // Preserve the intended destination via 'next' query param
         const redirectTo =
           pathname +
           (searchParams.toString() ? `?${searchParams.toString()}` : "");
@@ -133,7 +126,6 @@ export default function AppClientLayout({
     isPublicOnlyRoute,
   ]);
 
-  // Display error/message toasts from URL params (e.g., after OAuth redirect)
   useEffect(() => {
     const error = searchParams.get("error");
     const message = searchParams.get("message");
@@ -145,7 +137,6 @@ export default function AppClientLayout({
           ? decodeURIComponent(message).replace(/-/g, " ")
           : "An unexpected error occurred.",
       });
-      // Clean up URL params by replacing the current entry in history
       router.replace(pathname, { scroll: false });
     } else if (message && message === "confirmation_pending") {
       toast({
@@ -162,7 +153,7 @@ export default function AppClientLayout({
     { href: "/search", label: "Explore", icon: Search },
     { href: "/create", label: "Create", icon: PlusSquare, authRequired: true },
     {
-      href: "/profile",
+      href: "/profile", // Link to user's own profile
       label: "Profile",
       icon: User,
       authRequired: true,
@@ -180,8 +171,7 @@ export default function AppClientLayout({
 
   const isNotFoundPage = pathname === "/not-found";
 
-  if (isLoadingAuth && !currentUser) {
-    // Show full page loader only on initial load if no user yet
+  if (isLoadingAuth && (isProtectedRoute || !currentUser)) {
     return (
       <>
         <div className="flex items-center justify-center min-h-screen bg-background">
@@ -193,19 +183,17 @@ export default function AppClientLayout({
   }
 
   if (isAuthRoute || isNotFoundPage) {
-    // For login/signup/not-found pages, render children directly without main layout
-    // unless user is already logged in and on login/signup, in which case redirect handled above.
-    if (currentUser && isAuthRoute) {
-      // Still loading auth or redirecting, show loader
-      return (
-        <>
-          <div className="flex items-center justify-center min-h-screen bg-background">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          </div>
-          <Toaster />
-        </>
-      );
-    }
+     if (currentUser && isAuthRoute && !isLoadingAuth) { // User is logged in but on login/signup
+        // Already handled by redirect logic, but show loader during transition
+        return (
+          <>
+            <div className="flex items-center justify-center min-h-screen bg-background">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+            <Toaster />
+          </>
+        );
+      }
     return (
       <>
         {children}
@@ -234,7 +222,6 @@ export default function AppClientLayout({
         <SidebarContent className="p-2">
           <SidebarMenu>
             {navItems.map((item) => {
-              // Auth check for item visibility
               if (item.authRequired && !currentUser) return null;
 
               const isActive = item.exact
@@ -301,7 +288,7 @@ export default function AppClientLayout({
                     }}
                     isActive={pathname === "/login"}
                   >
-                    <Link href="/login">
+                    <Link href={`/login?next=${encodeURIComponent(pathname)}`}>
                       <LogIn />
                       <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">
                         Login
@@ -319,7 +306,7 @@ export default function AppClientLayout({
                     }}
                     isActive={pathname === "/signup"}
                   >
-                    <Link href="/signup">
+                    <Link href={`/signup?next=${encodeURIComponent(pathname)}`}>
                       <FileSignature />
                       <span className="group-data-[state=expanded]:inline group-data-[state=collapsed]:hidden">
                         Sign Up
@@ -333,7 +320,7 @@ export default function AppClientLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="flex flex-col bg-background">
-        <AppHeader />
+        <AppHeader currentUser={currentUser} />
         {children}
         <Button
           variant="outline"

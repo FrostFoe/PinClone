@@ -1,8 +1,9 @@
+
 "use client";
 
 import type { Pin } from "@/types";
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
-import { useParams, useRouter } from "next/navigation"; // useParams can be used here
+import { useParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
   Smile,
   MoreHorizontal,
   Loader2,
+  LogIn,
 } from "lucide-react";
 import PinGrid from "@/components/pin-grid";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +36,8 @@ import { fetchPinById, fetchPinsByUserId } from "@/services/pinService";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import dynamic from "next/dynamic";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 const ImageZoomModal = dynamic(() => import("@/components/image-zoom-modal"), {
   loading: () => (
@@ -46,7 +50,6 @@ const ImageZoomModal = dynamic(() => import("@/components/image-zoom-modal"), {
 
 const RELATED_PINS_LIMIT = 10;
 
-// Props type for the client content component
 interface PinDetailClientContentProps {
   params: { id: string };
 }
@@ -55,9 +58,12 @@ export default function PinDetailClientContent({
   params: routeParams,
 }: PinDetailClientContentProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
-  const pinId = routeParams?.id as string; // Use passed params
+  const pinId = routeParams?.id as string;
+  const supabase = createSupabaseBrowserClient();
 
+  const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
   const [pinDetail, setPinDetail] = useState<Pin | null>(null);
   const [relatedPins, setRelatedPins] = useState<Pin[]>([]);
   const [isLoadingPin, setIsLoadingPin] = useState(true);
@@ -66,6 +72,23 @@ export default function PinDetailClientContent({
   const [hasMoreRelated, setHasMoreRelated] = useState(true);
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setCurrentUser(session?.user ?? null);
+    };
+    getSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
 
   const loadPinDetails = useCallback(
     async (id: string) => {
@@ -82,18 +105,16 @@ export default function PinDetailClientContent({
           title: "Error",
           description: error || "Pin not found.",
         });
-        // Consider if router.push('/not-found') is appropriate, or let UI show error
+        router.push("/not-found");
       } else {
         setPinDetail(pin);
-        // Initial load of related pins moved to a separate useEffect dependent on pinDetail
-        // Update document title
         if (typeof document !== "undefined") {
           document.title = `${pin.title || "Pin"} by ${pin.uploader?.username || "User"} | Pinclone`;
         }
       }
       setIsLoadingPin(false);
     },
-    [toast],
+    [toast, router],
   );
 
   const loadMoreRelatedPins = useCallback(
@@ -131,10 +152,12 @@ export default function PinDetailClientContent({
         } else if (
           initialLoad &&
           newPins.length <= 1 &&
-          newPins[0]?.id === currentPinId
+          newPins.find(p => p.id === currentPinId) && // check if the only pin is the current one
+          newPins.length === filteredNewPins.length // means no other pins were fetched
         ) {
-          setHasMoreRelated(false);
-        } else if (newPins.length === 0) {
+           setHasMoreRelated(false);
+        }
+         else if (newPins.length === 0 || (newPins.length === 1 && newPins[0].id === currentPinId && filteredNewPins.length === 0 )) {
           setHasMoreRelated(false);
         }
       }
@@ -156,8 +179,7 @@ export default function PinDetailClientContent({
       setHasMoreRelated(true);
       loadMoreRelatedPins(pinDetail.user_id, 1, true, pinDetail.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinDetail?.id, pinDetail?.user_id]); // loadMoreRelatedPins removed from deps
+  }, [pinDetail?.id, pinDetail?.user_id, loadMoreRelatedPins]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -333,12 +355,20 @@ export default function PinDetailClientContent({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              size="lg"
-              className="rounded-full px-5 sm:px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              Save
-            </Button>
+            {currentUser ? (
+              <Button
+                size="lg"
+                className="rounded-full px-5 sm:px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                Save
+              </Button>
+            ) : (
+              <Button asChild size="lg" className="rounded-full px-5 sm:px-6">
+                <Link href={`/login?next=${encodeURIComponent(pathname)}`}>
+                  <LogIn className="mr-2 h-4 w-4 sm:h-5 sm:w-5" /> Save
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -361,7 +391,7 @@ export default function PinDetailClientContent({
                       }
                       className="rounded-2xl object-contain w-full h-full max-h-[75vh] shadow-md"
                       data-ai-hint={pinDetail.title || "pin detail"}
-                      priority // For LCP
+                      priority
                       sizes="(max-width: 1280px) 50vw, (max-width: 1024px) 55vw, 800px"
                     />
                   ) : (
@@ -429,12 +459,19 @@ export default function PinDetailClientContent({
                           )}
                         </div>
                       </Link>
-                      <Button
-                        variant="secondary"
-                        className="rounded-full px-5 h-10 text-sm font-medium hover:bg-secondary/80 focus-ring"
-                      >
-                        Follow
-                      </Button>
+                      {currentUser && currentUser.id !== pinDetail.user_id && (
+                        <Button
+                          variant="secondary"
+                          className="rounded-full px-5 h-10 text-sm font-medium hover:bg-secondary/80 focus-ring"
+                        >
+                          Follow
+                        </Button>
+                      )}
+                       {!currentUser && (
+                         <Button asChild variant="secondary" className="rounded-full px-5 h-10 text-sm font-medium hover:bg-secondary/80 focus-ring">
+                            <Link href={`/login?next=${encodeURIComponent(pathname)}`}>Follow</Link>
+                         </Button>
+                       )}
                     </div>
                   )}
 
@@ -447,44 +484,63 @@ export default function PinDetailClientContent({
 
                   <div className="mt-auto">
                     <h3 className="font-semibold text-lg mb-3">Comments (0)</h3>
-                    <div className="space-y-4 mb-6 max-h-60 overflow-y-auto pr-2">
-                      <p className="text-sm text-muted-foreground">
-                        No comments yet. Be the first to share your thoughts!
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-10 w-10 mt-1">
-                        <AvatarImage
-                          src="https://placehold.co/40x40.png?text=Me"
-                          alt="Your avatar"
-                          data-ai-hint="profile avatar current user"
-                        />
-                        <AvatarFallback>Me</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 relative">
-                        <Textarea
-                          placeholder="Add a comment..."
-                          className="rounded-2xl pr-20 min-h-[48px] py-3 text-sm resize-none focus-ring"
-                          rows={1}
-                        />
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-primary rounded-full"
-                          >
-                            <Smile className="h-5 w-5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-primary rounded-full"
-                          >
-                            <Send className="h-5 w-5" />
-                          </Button>
+                     {currentUser ? (
+                        <>
+                        <div className="space-y-4 mb-6 max-h-60 overflow-y-auto pr-2">
+                        <p className="text-sm text-muted-foreground">
+                            No comments yet. Be the first to share your thoughts!
+                        </p>
                         </div>
-                      </div>
-                    </div>
+                        <div className="flex items-start gap-3">
+                        <Avatar className="h-10 w-10 mt-1">
+                            <AvatarImage
+                            src={currentUser.user_metadata?.avatar_url || "https://placehold.co/40x40.png?text=Me"}
+                            alt="Your avatar"
+                            data-ai-hint="profile avatar current user"
+                            />
+                            <AvatarFallback>
+                                {currentUser.email?.[0]?.toUpperCase() || "Me"}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 relative">
+                            <Textarea
+                            placeholder="Add a comment..."
+                            className="rounded-2xl pr-20 min-h-[48px] py-3 text-sm resize-none focus-ring"
+                            rows={1}
+                            />
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-primary rounded-full"
+                            >
+                                <Smile className="h-5 w-5" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-primary rounded-full"
+                            >
+                                <Send className="h-5 w-5" />
+                            </Button>
+                            </div>
+                        </div>
+                        </div>
+                        </>
+                    ) : (
+                        <div className="text-center p-4 border rounded-lg bg-muted/50">
+                            <p className="text-muted-foreground">
+                                <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="text-primary hover:underline font-semibold">
+                                Log in
+                                </Link>{" "}
+                                or{" "}
+                                <Link href={`/signup?next=${encodeURIComponent(pathname)}`} className="text-primary hover:underline font-semibold">
+                                Sign up
+                                </Link>{" "}
+                                to leave a comment.
+                            </p>
+                        </div>
+                    )}
                   </div>
                 </div>
               </div>
