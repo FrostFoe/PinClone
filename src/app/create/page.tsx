@@ -1,21 +1,29 @@
 // ==========================================================================================
 // !! CRITICAL SUPABASE SETUP FOR PIN CREATION !!
 // ==========================================================================================
-// TO FIX "Bucket not found" ERRORS:
-// You MUST create a Supabase Storage bucket named 'pins'.
+// TO FIX "Bucket not found" or "new row violates row-level security policy" ERRORS:
 //
-// Steps:
-// 1. Go to your Supabase Project Dashboard.
-// 2. In the left sidebar, click on 'Storage'.
-// 3. Click the 'Create new bucket' button.
-// 4. For 'Bucket name', enter exactly: pins (all lowercase)
-// 5. Toggle 'Public bucket' to ON. This allows images to be directly accessible via URL.
-//    (Alternatively, for private buckets, configure RLS policies: allow authenticated to insert,
-//     allow everyone to select/read). For this app, public is simpler.
-// 6. Click 'Create bucket'.
+// 1. CREATE 'pins' BUCKET IN SUPABASE STORAGE:
+//    - Go to your Supabase Project Dashboard -> Storage -> Buckets.
+//    - Click 'Create new bucket'.
+//    - Bucket name: pins (all lowercase)
+//    - Toggle 'Public bucket' to ON. (This sets basic read access. Uploads are handled by RLS below).
+//    - Click 'Create bucket'.
 //
-// If this bucket is not created, image uploads will fail with a "Bucket not found" error,
-// as shown in the toast message.
+// 2. APPLY ROW LEVEL SECURITY (RLS) POLICIES FOR STORAGE:
+//    - The `sql/schema.sql` file in this project contains the necessary RLS policies
+//      for the `storage.objects` table, specifically to allow authenticated users
+//      to UPLOAD (INSERT) into the 'pins' bucket.
+//    - Ensure you have run the LATEST version of `sql/schema.sql` in your Supabase SQL Editor.
+//    - Key policy for uploads:
+//      CREATE POLICY "Allow authenticated upload to pins" ON storage.objects
+//        FOR INSERT TO authenticated WITH CHECK (bucket_id = 'pins' AND auth.uid() = owner);
+//    - Also ensure RLS is ENABLED on the `storage.objects` table using:
+//      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+//      (This is also included in `sql/schema.sql`).
+//
+// 3. REFRESH SUPABASE SCHEMA CACHE:
+//    - After applying SQL changes, go to Supabase Dashboard -> API section -> Click "Reload schema".
 // ==========================================================================================
 "use client";
 
@@ -174,27 +182,42 @@ export default function CreatePinPage() {
 
     const file = data.imageFile[0];
     const fileExt = file.name.split(".").pop();
-    const filePath = `public/${currentUser.id}/${Date.now()}.${fileExt}`;
+    const filePath = `public/${currentUser.id}/${Date.now()}.${fileExt}`; // Path within the bucket
 
     try {
+      // Upload to 'pins' bucket
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("pins") // Critical: This bucket MUST exist in Supabase Storage. See comment at top of file.
+        .from("pins") // CRITICAL: This bucket MUST exist and have correct RLS policies.
         .upload(filePath, file, {
           cacheControl: "3600",
-          upsert: false,
+          upsert: false, // Don't upsert, always new file path
           contentType: file.type,
         });
 
       setIsUploading(false);
       if (uploadError) {
-        // This will catch "Bucket not found" if the 'pins' bucket doesn't exist.
+        // This will catch "Bucket not found" or RLS violations.
         console.error("Supabase storage upload error:", uploadError);
-        throw new Error(`Image upload failed: ${uploadError.message}. Ensure 'pins' bucket exists and is public.`);
+        // Make error message more generic for user, but specific for dev console.
+        let userMessage = "Image upload failed. Please try again.";
+        if (uploadError.message.includes("Bucket not found")) {
+          userMessage = "Image upload failed: Bucket not found. Ensure 'pins' bucket exists and is public (or RLS configured).";
+        } else if (uploadError.message.includes("security policy")) {
+           userMessage = "Image upload failed: Permission denied. Please check storage security rules (RLS).";
+        } else {
+           userMessage = `Image upload failed: ${uploadError.message}.`;
+        }
+        throw new Error(userMessage);
+      }
+      
+      if (!uploadData || !uploadData.path) {
+        // This case should ideally not happen if uploadError is null, but good to check.
+        throw new Error("Image upload succeeded but no path returned from storage.");
       }
 
       const { data: urlData } = supabase.storage
         .from("pins")
-        .getPublicUrl(uploadData.path);
+        .getPublicUrl(uploadData.path); // Use the path from uploadData
       const imageUrl = urlData.publicUrl;
 
       const pinDetails = {
@@ -210,7 +233,7 @@ export default function CreatePinPage() {
 
       if (createPinError || !createdPin) {
         // Attempt to rollback storage upload if pin creation in DB fails
-        await supabase.storage.from("pins").remove([filePath]);
+        await supabase.storage.from("pins").remove([uploadData.path]);
         console.error("Create pin service error:", createPinError);
         throw new Error(createPinError || "Failed to save pin details to database.");
       }

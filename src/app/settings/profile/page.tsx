@@ -1,20 +1,29 @@
 // ==========================================================================================
 // !! CRITICAL SUPABASE SETUP FOR PROFILE AVATARS !!
 // ==========================================================================================
-// TO FIX "Bucket not found" ERRORS for avatar uploads:
-// You MUST create a Supabase Storage bucket named 'avatars'.
+// TO FIX "Bucket not found" or "new row violates row-level security policy" ERRORS for avatar uploads:
 //
-// Steps:
-// 1. Go to your Supabase Project Dashboard.
-// 2. In the left sidebar, click on 'Storage'.
-// 3. Click the 'Create new bucket' button.
-// 4. For 'Bucket name', enter exactly: avatars (all lowercase)
-// 5. Toggle 'Public bucket' to ON. This allows images to be directly accessible via URL.
-//    (Alternatively, for private buckets, configure RLS policies: allow the owner to insert/update,
-//     allow everyone to select/read). For this app, public is simpler for avatars.
-// 6. Click 'Create bucket'.
+// 1. CREATE 'avatars' BUCKET IN SUPABASE STORAGE:
+//    - Go to your Supabase Project Dashboard -> Storage -> Buckets.
+//    - Click 'Create new bucket'.
+//    - Bucket name: avatars (all lowercase)
+//    - Toggle 'Public bucket' to ON. (This sets basic read access. Uploads are handled by RLS below).
+//    - Click 'Create bucket'.
 //
-// If this bucket is not created, avatar uploads will fail with a "Bucket not found" error.
+// 2. APPLY ROW LEVEL SECURITY (RLS) POLICIES FOR STORAGE:
+//    - The `sql/schema.sql` file in this project contains the necessary RLS policies
+//      for the `storage.objects` table, specifically to allow authenticated users
+//      to UPLOAD (INSERT) into the 'avatars' bucket.
+//    - Ensure you have run the LATEST version of `sql/schema.sql` in your Supabase SQL Editor.
+//    - Key policy for uploads:
+//      CREATE POLICY "Allow authenticated upload to avatars" ON storage.objects
+//        FOR INSERT TO authenticated WITH CHECK (bucket_id = 'avatars' AND auth.uid() = owner);
+//    - Also ensure RLS is ENABLED on the `storage.objects` table using:
+//      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+//      (This is also included in `sql/schema.sql`).
+//
+// 3. REFRESH SUPABASE SCHEMA CACHE:
+//    - After applying SQL changes, go to Supabase Dashboard -> API section -> Click "Reload schema".
 // ==========================================================================================
 "use client";
 
@@ -149,7 +158,7 @@ export default function ProfileSettingsPage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
         toast({
           variant: "destructive",
           title: "File too large",
@@ -181,7 +190,7 @@ export default function ProfileSettingsPage() {
       return;
     }
 
-    setIsSaving(true);
+    setIsSaving(true); // Use isSaving to indicate loading state for this check
     const { available, error } =
       await checkUsernameAvailability(trimmedUsername);
     if (error) {
@@ -225,7 +234,7 @@ export default function ProfileSettingsPage() {
       });
       return;
     }
-    if (usernameError) {
+    if (usernameError) { // Check existing usernameError state
       toast({
         variant: "destructive",
         title: "Validation Error",
@@ -239,38 +248,52 @@ export default function ProfileSettingsPage() {
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split(".").pop();
-      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`;
+      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`; // Path within the bucket
+      // Upload to 'avatars' bucket
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("avatars") // Critical: This bucket MUST exist in Supabase Storage. See comment at top of file.
+        .from("avatars") // CRITICAL: This bucket MUST exist and have correct RLS policies.
         .upload(fileName, avatarFile, {
-          upsert: true,
+          upsert: true, // Overwrite if file with same path exists (e.g., re-uploading avatar)
           contentType: avatarFile.type,
         });
 
       if (uploadError) {
         console.error("Supabase storage upload error (avatars):", uploadError);
+        let userMessage = "Avatar upload failed. Please try again.";
+         if (uploadError.message.includes("Bucket not found")) {
+          userMessage = "Avatar upload failed: Bucket not found. Ensure 'avatars' bucket exists and is public (or RLS configured).";
+        } else if (uploadError.message.includes("security policy")) {
+           userMessage = "Avatar upload failed: Permission denied. Please check storage security rules (RLS).";
+        } else {
+           userMessage = `Avatar upload failed: ${uploadError.message}.`;
+        }
         toast({
           variant: "destructive",
           title: "Avatar Upload Failed",
-          description: `${uploadError.message}. Ensure 'avatars' bucket exists and is public.`,
+          description: userMessage,
         });
         setIsSaving(false);
         return;
       }
+      
+      if (!uploadData || !uploadData.path) {
+        throw new Error("Avatar upload succeeded but no path returned from storage.");
+      }
+
       const { data: urlData } = supabase.storage
         .from("avatars")
-        .getPublicUrl(uploadData.path);
+        .getPublicUrl(uploadData.path); // Use path from uploadData
       avatarPublicUrl = urlData.publicUrl;
     }
 
     const updates: TablesUpdate<"profiles"> = {
-      id: currentUserId, 
+      // id: currentUserId, // id is used for matching in upsert, not needed in update payload itself here for Supabase v2 syntax with .eq('id', currentUserId)
       full_name: userData.full_name?.trim() || null,
-      username: userData.username?.trim(), 
+      username: userData.username?.trim(), // Already validated
       bio: userData.bio?.trim() || null,
       website: userData.website?.trim() || null,
-      avatar_url: avatarPublicUrl || null,
-      updated_at: new Date().toISOString(), // Ensure updated_at is set
+      avatar_url: avatarPublicUrl || null, // Use the new URL if uploaded, else existing
+      updated_at: new Date().toISOString(), // Explicitly set updated_at
     };
 
     const { profile: updatedProfile, error: updateError } = await updateProfile(
@@ -288,13 +311,14 @@ export default function ProfileSettingsPage() {
         setUsernameError(updateError);
       }
     } else if (updatedProfile) {
-      setUserData(updatedProfile);
-      setInitialUsername(updatedProfile.username || null);
-      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url)
-        setAvatarPreview(avatarPublicUrl);
-      setAvatarFile(null);
+      setUserData(updatedProfile); // Update local state with the saved profile
+      setInitialUsername(updatedProfile.username || null); // Update initialUsername
+      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url) { // if new avatar uploaded
+         setAvatarPreview(avatarPublicUrl); // Update preview with confirmed public URL
+      }
+      setAvatarFile(null); // Clear the file input
       toast({ title: "Profile Saved Successfully!" });
-      router.refresh(); 
+      router.refresh(); // Refresh server components (like AppHeader)
     }
     setIsSaving(false);
   };
@@ -318,7 +342,7 @@ export default function ProfileSettingsPage() {
     );
   }
 
-  if (!userData && !isLoading) {
+  if (!userData && !isLoading) { // Check after loading is complete
     return (
       <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center justify-center">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
@@ -359,14 +383,14 @@ export default function ProfileSettingsPage() {
               <div className="relative">
                 <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-secondary">
                   <AvatarImage
-                    src={avatarPreview || undefined}
+                    src={avatarPreview || undefined} // Use avatarPreview for immediate feedback
                     alt={userData?.full_name || userData?.username || "User"}
                     data-ai-hint="profile avatar large settings"
                   />
                   <AvatarFallback className="text-4xl">
                     {userData?.full_name?.[0]?.toUpperCase() ||
                       userData?.username?.[0]?.toUpperCase() ||
-                      currentUserEmail?.[0]?.toUpperCase() ||
+                      currentUserEmail?.[0]?.toUpperCase() || // Fallback to email initial
                       "U"}
                   </AvatarFallback>
                 </Avatar>
@@ -452,12 +476,12 @@ export default function ProfileSettingsPage() {
                     name="username"
                     value={userData?.username || ""}
                     onChange={handleChange}
-                    onBlur={handleUsernameBlur}
+                    onBlur={handleUsernameBlur} // Validate on blur
                     className={`pl-7 h-11 focus-ring ${usernameError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     placeholder="yourusername"
                     aria-describedby="username-error"
                     disabled={isSaving}
-                    required
+                    required // Username is required
                   />
                 </div>
                 {usernameError && (
@@ -468,14 +492,9 @@ export default function ProfileSettingsPage() {
                     {usernameError}
                   </p>
                 )}
-                {!usernameError &&
-                  userData?.username &&
-                  userData.username.trim().length > 0 &&
-                  userData.username.trim().length < 3 && (
-                    <p className="text-xs text-destructive mt-1">
-                      Username must be at least 3 characters.
-                    </p>
-                  )}
+                 {!usernameError && userData?.username && userData.username.trim().length > 0 && userData.username.trim().length < 3 && (
+                  <p className="text-xs text-destructive mt-1">Username must be at least 3 characters.</p>
+                )}
               </div>
               <div className="md:col-span-2">
                 <Label
@@ -511,7 +530,7 @@ export default function ProfileSettingsPage() {
                   <Input
                     id="website"
                     name="website"
-                    type="url"
+                    type="url" // Use type="url" for basic client-side validation
                     value={userData?.website || ""}
                     onChange={handleChange}
                     className="pl-10 h-11 focus-ring"
@@ -543,7 +562,7 @@ export default function ProfileSettingsPage() {
                   value={currentUserEmail || "Loading..."}
                   className="pl-10 h-11 bg-muted/50 border-muted/30 cursor-not-allowed"
                   placeholder="your.email@example.com"
-                  disabled
+                  disabled // Email is not editable here
                   readOnly
                 />
               </div>
@@ -568,13 +587,7 @@ export default function ProfileSettingsPage() {
               type="submit"
               size="lg"
               className="rounded-full px-8 bg-primary hover:bg-primary/90 focus-ring"
-              disabled={
-                isSaving ||
-                !!usernameError ||
-                (userData?.username &&
-                  userData.username.trim().length < 3 &&
-                  userData.username.trim() !== initialUsername)
-              }
+              disabled={isSaving || !!usernameError || (userData?.username && userData.username.trim().length <3 && userData.username.trim() !== initialUsername)}
             >
               {isSaving ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
