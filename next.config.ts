@@ -1,3 +1,4 @@
+
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -31,6 +32,15 @@ const nextConfig: NextConfig = {
           }
         : undefined,
     ].filter(Boolean) as any, // Filter out undefined if env var is not set
+  },
+  webpack: (config) => {
+    // Configuration to suppress the "Critical dependency: the request of a dependency is an expression" warning
+    // often seen with @supabase/realtime-js. This is generally safe.
+    config.module = {
+      ...config.module,
+      exprContextCritical: false,
+    };
+    return config;
   },
 };
 
