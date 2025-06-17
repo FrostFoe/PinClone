@@ -74,45 +74,52 @@ export default function PinDetailClientContent({
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
 
   useEffect(() => {
+    console.log("[PinDetailClient] Component mounted/updated. Pin ID from params:", pinId);
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setCurrentUser(session?.user ?? null);
+      console.log("[PinDetailClient] Current user session:", session?.user?.id || "No user");
     };
     getSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUser(session?.user ?? null);
+      console.log("[PinDetailClient] Auth state changed. New user:", session?.user?.id || "No user");
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, pinId]);
 
 
   const loadPinDetails = useCallback(
     async (id: string) => {
+      console.log(`[PinDetailClient] loadPinDetails called for ID: ${id}`);
       setIsLoadingPin(true);
-      setPinDetail(null);
-      setRelatedPins([]);
-      setRelatedPage(1);
-      setHasMoreRelated(true);
+      setPinDetail(null); // Reset pin detail on new load
+      setRelatedPins([]); // Reset related pins
+      setRelatedPage(1); // Reset related pins page
+      setHasMoreRelated(true); // Reset hasMoreRelated
 
       const { pin, error } = await fetchPinById(id);
       if (error || !pin) {
+        console.error(`[PinDetailClient] Error fetching pin ${id}:`, error || "Pin not found.");
         toast({
           variant: "destructive",
           title: "Error",
           description: error || "Pin not found.",
         });
-        router.push("/not-found");
+        router.push("/not-found"); // Redirect to a generic not-found page
       } else {
+        console.log(`[PinDetailClient] Successfully fetched pin ${id}:`, pin);
         setPinDetail(pin);
         if (typeof document !== "undefined") {
           document.title = `${pin.title || "Pin"} by ${pin.uploader?.username || "User"} | Pinclone`;
         }
       }
       setIsLoadingPin(false);
+      console.log(`[PinDetailClient] Finished loadPinDetails for ID: ${id}. isLoadingPin: false`);
     },
     [toast, router],
   );
@@ -124,8 +131,15 @@ export default function PinDetailClientContent({
       initialLoad = false,
       currentPinId: string,
     ) => {
-      if (isLoadingRelated && !initialLoad) return;
-      if (!hasMoreRelated && !initialLoad) return;
+      console.log(`[PinDetailClient] loadMoreRelatedPins called for user ${userId}, page ${pageToLoad}, initial: ${initialLoad}`);
+      if (isLoadingRelated && !initialLoad) {
+        console.log("[PinDetailClient] loadMoreRelatedPins: Already fetching related pins.");
+        return;
+      }
+      if (!hasMoreRelated && !initialLoad) {
+        console.log("[PinDetailClient] loadMoreRelatedPins: No more related pins to fetch.");
+        return;
+      }
 
       setIsLoadingRelated(true);
       const { pins: newPins, error } = await fetchPinsByUserId(
@@ -135,6 +149,7 @@ export default function PinDetailClientContent({
       );
 
       if (error) {
+        console.error(`[PinDetailClient] Error fetching related pins for user ${userId}:`, error);
         toast({
           variant: "destructive",
           title: "Error fetching related pins",
@@ -143,43 +158,49 @@ export default function PinDetailClientContent({
         setHasMoreRelated(false);
       } else {
         const filteredNewPins = newPins.filter((p) => p.id !== currentPinId);
+        console.log(`[PinDetailClient] Fetched ${newPins.length} related pins, ${filteredNewPins.length} after filtering current pin.`);
         if (filteredNewPins.length > 0) {
           setRelatedPins((prevPins) =>
             initialLoad ? filteredNewPins : [...prevPins, ...filteredNewPins],
           );
           setRelatedPage(pageToLoad + 1);
-          if (newPins.length < RELATED_PINS_LIMIT) setHasMoreRelated(false);
-        } else if (
-          initialLoad &&
-          newPins.length <= 1 &&
-          newPins.find(p => p.id === currentPinId) && // check if the only pin is the current one
-          newPins.length === filteredNewPins.length // means no other pins were fetched
-        ) {
+          if (newPins.length < RELATED_PINS_LIMIT) {
+            console.log("[PinDetailClient] loadMoreRelatedPins: Fetched less than limit, no more related pins.");
+            setHasMoreRelated(false);
+          }
+        } else if (newPins.length === 0 || (newPins.length <= 1 && newPins.some(p => p.id === currentPinId))) {
+          // This condition checks if no new pins were fetched, or if the only pins fetched were the current one (and thus filtered out)
+           console.log("[PinDetailClient] loadMoreRelatedPins: No new related pins found or only current pin fetched.");
            setHasMoreRelated(false);
-        }
-         else if (newPins.length === 0 || (newPins.length === 1 && newPins[0].id === currentPinId && filteredNewPins.length === 0 )) {
-          setHasMoreRelated(false);
         }
       }
       setIsLoadingRelated(false);
+      console.log(`[PinDetailClient] Finished loadMoreRelatedPins for user ${userId}. isLoadingRelated: false, hasMoreRelated: ${hasMoreRelated}`);
     },
     [toast, isLoadingRelated, hasMoreRelated],
   );
 
   useEffect(() => {
     if (pinId) {
+      console.log(`[PinDetailClient] useEffect (pinId watcher): pinId is ${pinId}, calling loadPinDetails.`);
       loadPinDetails(pinId);
+    } else {
+      console.warn("[PinDetailClient] useEffect (pinId watcher): pinId is missing.");
     }
   }, [pinId, loadPinDetails]);
 
   useEffect(() => {
     if (pinDetail?.user_id && pinDetail.id) {
+      console.log(`[PinDetailClient] useEffect (pinDetail watcher): Pin detail loaded for user ${pinDetail.user_id}. Fetching initial related pins.`);
+      // Reset related pins state before loading new ones for the current pinDetail
       setRelatedPins([]);
       setRelatedPage(1);
       setHasMoreRelated(true);
       loadMoreRelatedPins(pinDetail.user_id, 1, true, pinDetail.id);
+    } else {
+      console.log("[PinDetailClient] useEffect (pinDetail watcher): No pinDetail or user_id, skipping related pins load.");
     }
-  }, [pinDetail?.id, pinDetail?.user_id, loadMoreRelatedPins]);
+  }, [pinDetail?.id, pinDetail?.user_id, loadMoreRelatedPins]); // key dependency is pinDetail.id to reload when pin changes
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -191,6 +212,7 @@ export default function PinDetailClientContent({
           pinDetail?.user_id &&
           pinDetail.id
         ) {
+          console.log("[PinDetailClient] IntersectionObserver: Loader visible, fetching more related pins.");
           loadMoreRelatedPins(
             pinDetail.user_id,
             relatedPage,
@@ -213,13 +235,15 @@ export default function PinDetailClientContent({
     loadMoreRelatedPins,
     hasMoreRelated,
     isLoadingRelated,
-    pinDetail,
+    pinDetail, // Ensure observer re-evaluates if pinDetail changes
     relatedPage,
   ]);
 
   const openZoomModal = () => {
     if (pinDetail) setIsZoomModalOpen(true);
   };
+
+  console.log(`[PinDetailClient] Rendering. isLoadingPin: ${isLoadingPin}, pinDetail: ${pinDetail ? pinDetail.id : 'null'}`);
 
   if (isLoadingPin) {
     return (
@@ -258,14 +282,17 @@ export default function PinDetailClientContent({
   }
 
   if (!pinDetail) {
+    // This state should ideally be brief if loadPinDetails pushes to /not-found on error.
+    // If it lingers, it means loadPinDetails didn't redirect but also didn't set pinDetail.
+    console.warn("[PinDetailClient] Rendering with no pinDetail and not loading. This might indicate an issue.");
     return (
       <div className="flex flex-col min-h-screen bg-background justify-center items-center p-8 animate-fade-in">
         <SearchIconLucide className="h-24 w-24 text-muted-foreground/50 mb-6" />
         <h1 className="text-3xl font-bold text-foreground mb-2">
-          Pin Not Found
+          Pin Information Unavailable
         </h1>
         <p className="text-lg text-muted-foreground mb-8 text-center">
-          Oops! We couldn't find the pin you were looking for.
+          We couldn't load the details for this pin. It might have been removed or there was a temporary issue.
         </p>
         <Button
           onClick={() => router.push("/")}
@@ -558,7 +585,7 @@ export default function PinDetailClientContent({
                 onPinClick={(pin) => router.push(`/pin/${pin.id}`)}
                 showPinDetailsOverlay={true}
               />
-              {isLoadingRelated && relatedPins.length === 0 && (
+              {isLoadingRelated && relatedPins.length === 0 && ( // Show skeletons only if related pins are loading and list is empty
                 <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap">
                   {[...Array(6)].map((_, i) => (
                     <div
@@ -577,7 +604,7 @@ export default function PinDetailClientContent({
                 className="h-20 w-full flex justify-center items-center"
                 aria-hidden="true"
               >
-                {isLoadingRelated && relatedPins.length > 0 && (
+                {isLoadingRelated && relatedPins.length > 0 && ( // Show spinner only if loading more and some pins are already there
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 )}
               </div>
@@ -589,7 +616,7 @@ export default function PinDetailClientContent({
               {!hasMoreRelated &&
                 relatedPins.length === 0 &&
                 !isLoadingRelated &&
-                pinDetail && (
+                pinDetail && ( // Only show this if not loading and no related pins were ever found
                   <p className="text-center text-muted-foreground py-8">
                     No more pins from this uploader.
                   </p>

@@ -8,23 +8,25 @@ import type { TablesUpdate } from "@/types/supabase";
 export async function fetchProfileByUsername(
   username: string,
 ): Promise<{ profile: Profile | null; error: string | null }> {
+  console.log(`[profileService] fetchProfileByUsername: Fetching profile for username: ${username}`);
   const supabase = createSupabaseServerClient();
   if (!username || username.trim() === "") {
+    console.warn("[profileService] fetchProfileByUsername: Username is required but was not provided.");
     return { profile: null, error: "Username is required." };
   }
   try {
     const { data, error, status, statusText } = await supabase
       .from("profiles")
       .select("*")
-      .ilike("username", username.trim())
+      .ilike("username", username.trim()) // Using ilike for case-insensitive match
       .single();
 
     if (error) {
-      if (error.code === "PGRST116") {
-        console.warn(`Profile not found for username "${username}" (PGRST116).`);
+      if (error.code === "PGRST116") { // "PGRST116" is "Searched item was not found"
+        console.warn(`[profileService] fetchProfileByUsername: Profile not found for username "${username}" (PGRST116).`);
         return { profile: null, error: "Profile not found." };
       }
-      console.error(`Error fetching profile by username "${username}":`, {
+      console.error(`[profileService] fetchProfileByUsername: Error fetching profile by username "${username}":`, {
         message: error.message,
         details: error.details,
         hint: error.hint,
@@ -34,10 +36,17 @@ export async function fetchProfileByUsername(
       });
       return { profile: null, error: error.message };
     }
-    return { profile: data, error: null };
+
+    if (!data) {
+      // This case should ideally be covered by error.code === "PGRST116" if .single() is used and no row is found.
+      console.warn(`[profileService] fetchProfileByUsername: Profile data is null for username "${username}" after fetch, though no specific error was returned. This might indicate an RLS issue or the profile truly does not exist.`);
+      return { profile: null, error: "Profile data is unexpectedly null after fetch." };
+    }
+    console.log(`[profileService] fetchProfileByUsername: Successfully fetched profile for username "${username}":`, JSON.stringify(data, null, 2));
+    return { profile: data as Profile, error: null };
   } catch (e: any) {
     console.error(
-      `Unexpected error in fetchProfileByUsername for username "${username}":`,
+      `[profileService] fetchProfileByUsername: Unexpected error for username "${username}":`,
       {
         message: (e as Error).message,
         stack: (e as Error).stack,
@@ -50,8 +59,12 @@ export async function fetchProfileByUsername(
 export async function fetchProfileById(
   userId: string,
 ): Promise<{ profile: Profile | null; error: string | null }> {
+  console.log(`[profileService] fetchProfileById: Fetching profile for user ID: ${userId}`);
   const supabase = createSupabaseServerClient();
-  if (!userId) return { profile: null, error: "User ID is required." };
+  if (!userId) {
+    console.warn("[profileService] fetchProfileById: User ID is required but was not provided.");
+    return { profile: null, error: "User ID is required." };
+  }
   try {
     const { data, error, status, statusText } = await supabase
       .from("profiles")
@@ -61,10 +74,10 @@ export async function fetchProfileById(
 
     if (error) {
       if (error.code === "PGRST116") {
-        console.warn(`Profile not found for user ID "${userId}" (PGRST116). This can happen if a user signed up but their profile record wasn't created by the handle_new_user trigger, or if the ID is incorrect.`);
+        console.warn(`[profileService] fetchProfileById: Profile not found for user ID "${userId}" (PGRST116). This can happen if a user signed up but their profile record wasn't created by the handle_new_user trigger, or if the ID is incorrect.`);
         return { profile: null, error: "Profile not found for this user ID." };
       }
-      console.error(`Error fetching profile by ID "${userId}":`, {
+      console.error(`[profileService] fetchProfileById: Error fetching profile by ID "${userId}":`, {
         message: error.message,
         details: error.details,
         hint: error.hint,
@@ -74,9 +87,15 @@ export async function fetchProfileById(
       });
       return { profile: null, error: error.message };
     }
-    return { profile: data, error: null };
+
+    if (!data) {
+      console.warn(`[profileService] fetchProfileById: Profile data is null for user ID "${userId}" after fetch, though no specific error was returned.`);
+      return { profile: null, error: "Profile data is unexpectedly null after fetch." };
+    }
+    console.log(`[profileService] fetchProfileById: Successfully fetched profile for user ID "${userId}":`, JSON.stringify(data, null, 2));
+    return { profile: data as Profile, error: null };
   } catch (e: any) {
-    console.error(`Unexpected error in fetchProfileById for user ID "${userId}":`, {
+    console.error(`[profileService] fetchProfileById: Unexpected error for user ID "${userId}":`, {
       message: (e as Error).message,
       stack: (e as Error).stack,
     });
@@ -88,22 +107,27 @@ export async function updateProfile(
   userId: string,
   updates: TablesUpdate<"profiles">,
 ): Promise<{ profile: Profile | null; error: string | null }> {
+  console.log(`[profileService] updateProfile: Attempting to update profile for user ID: ${userId} with updates:`, updates);
   const supabase = createSupabaseServerClient();
   if (!userId) {
+    console.warn("[profileService] updateProfile: User ID is required for update.");
     return { profile: null, error: "User ID is required for update." };
   }
 
   if (updates.username !== undefined) {
     if (updates.username === null || updates.username.trim() === "") {
+      console.warn("[profileService] updateProfile: Username cannot be empty.");
       return { profile: null, error: "Username cannot be empty." };
     }
     if (updates.username.trim().length < 3) {
+      console.warn("[profileService] updateProfile: Username must be at least 3 characters.");
       return {
         profile: null,
         error: "Username must be at least 3 characters.",
       };
     }
     if (!/^[a-zA-Z0-9_.]+$/.test(updates.username.trim())) {
+      console.warn("[profileService] updateProfile: Username contains invalid characters.");
       return {
         profile: null,
         error:
@@ -121,9 +145,12 @@ export async function updateProfile(
 
   const profileDataForUpdate: TablesUpdate<"profiles"> = {
     ...updates,
+    updated_at: new Date().toISOString(), // Explicitly set updated_at
   };
-  // Let the DB trigger handle updated_at
-  delete profileDataForUpdate.updated_at;
+  // Remove id from update payload if present, as it's used in .eq()
+  if ('id' in profileDataForUpdate) {
+    delete profileDataForUpdate.id;
+  }
 
 
   try {
@@ -135,7 +162,7 @@ export async function updateProfile(
       .single();
 
     if (error) {
-      console.error(`Error updating profile for user "${userId}":`, {
+      console.error(`[profileService] updateProfile: Error updating profile for user "${userId}":`, {
         message: error.message,
         details: error.details,
         hint: error.hint,
@@ -145,12 +172,12 @@ export async function updateProfile(
         updatePayload: profileDataForUpdate,
       });
       if (
-        error.message.includes("profiles_username_key") ||
-        error.message.includes("profiles_username_idx") ||
-        (error.message.includes(
+        error.message.includes("profiles_username_key") || // PostgreSQL specific for unique constraint
+        error.message.includes("profiles_username_idx") || // Index name if used for unique constraint
+        (error.message.includes( // Generic unique constraint violation message
           "duplicate key value violates unique constraint",
         ) &&
-          error.message.includes("username"))
+          error.message.includes("username")) // Check if 'username' is part of the constraint name
       ) {
         return { profile: null, error: "This username is already taken." };
       }
@@ -158,16 +185,17 @@ export async function updateProfile(
     }
     if (!data) {
       console.error(
-        `Profile data is null after update for user "${userId}", though no specific error was returned. This might be an RLS issue or the profile does not exist.`,
+        `[profileService] updateProfile: Profile data is null after update for user "${userId}", though no specific error was returned. This might be an RLS issue or the profile does not exist.`,
       );
       return {
         profile: null,
         error: "Profile update succeeded but no data returned.",
       };
     }
-    return { profile: data, error: null };
+    console.log(`[profileService] updateProfile: Successfully updated profile for user ID "${userId}":`, JSON.stringify(data, null, 2));
+    return { profile: data as Profile, error: null };
   } catch (e: any) {
-    console.error(`Unexpected error in updateProfile for user "${userId}":`, {
+    console.error(`[profileService] updateProfile: Unexpected error for user "${userId}":`, {
       message: (e as Error).message,
       stack: (e as Error).stack,
       updatePayload: profileDataForUpdate,
@@ -179,6 +207,7 @@ export async function updateProfile(
 export async function checkUsernameAvailability(
   username: string,
 ): Promise<{ available: boolean; error: string | null }> {
+  console.log(`[profileService] checkUsernameAvailability: Checking username: ${username}`);
   const supabase = createSupabaseServerClient();
   const trimmedUsername = username.trim();
   if (!trimmedUsername) {
@@ -203,11 +232,11 @@ export async function checkUsernameAvailability(
       .from("profiles")
       .select("username")
       .ilike("username", trimmedUsername)
-      .maybeSingle();
+      .maybeSingle(); // Use maybeSingle to not error if no user found
 
-    if (error && error.code !== "PGRST116") {
+    if (error && error.code !== "PGRST116") { // PGRST116 means no rows found, which is fine here
       console.error(
-        `Error checking username availability for "${trimmedUsername}":`,
+        `[profileService] checkUsernameAvailability: Error for "${trimmedUsername}":`,
         {
           message: error.message,
           details: error.details,
@@ -219,10 +248,12 @@ export async function checkUsernameAvailability(
       );
       return { available: false, error: error.message };
     }
-    return { available: !data, error: null };
+    const isAvailable = !data; // If data exists, username is taken
+    console.log(`[profileService] checkUsernameAvailability: Username "${trimmedUsername}" is ${isAvailable ? 'available' : 'taken'}.`);
+    return { available: isAvailable, error: null };
   } catch (e: any) {
     console.error(
-      `Unexpected error in checkUsernameAvailability for "${trimmedUsername}":`,
+      `[profileService] checkUsernameAvailability: Unexpected error for "${trimmedUsername}":`,
       {
         message: (e as Error).message,
         stack: (e as Error).stack,

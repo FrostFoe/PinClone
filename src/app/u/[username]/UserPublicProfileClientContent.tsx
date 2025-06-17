@@ -49,23 +49,26 @@ export default function UserPublicProfileClientContent({
   const [hasMorePins, setHasMorePins] = useState(true);
   const pinsLoaderRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState("created");
-  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false); // Placeholder
 
   useEffect(() => {
+    console.log("[UserPublicProfileClient] Mounted/updated. Username from params:", username);
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setCurrentUser(session?.user ?? null);
+      console.log("[UserPublicProfileClient] Current user session:", session?.user?.id || "No user");
     };
     getSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUser(session?.user ?? null);
+      console.log("[UserPublicProfileClient] Auth state changed. New user:", session?.user?.id || "No user");
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, username]);
 
 
   const loadMorePins = useCallback(
@@ -75,8 +78,15 @@ export default function UserPublicProfileClientContent({
       initialLoad = false,
       currentTab: string,
     ) => {
-      if (isLoadingPins && !initialLoad) return;
-      if (!hasMorePins && !initialLoad) return;
+      console.log(`[UserPublicProfileClient] loadMorePins called for user ${userId}, tab ${currentTab}, page ${pageToLoad}, initial: ${initialLoad}`);
+      if (isLoadingPins && !initialLoad) {
+        console.log("[UserPublicProfileClient] loadMorePins: Already fetching pins.");
+        return;
+      }
+      if (!hasMorePins && !initialLoad) {
+        console.log("[UserPublicProfileClient] loadMorePins: No more pins to fetch.");
+        return;
+      }
 
       setIsLoadingPins(true);
       let fetchedData;
@@ -86,13 +96,15 @@ export default function UserPublicProfileClientContent({
           pageToLoad,
           PINS_PER_PAGE,
         );
-      } else {
+      } else { // "saved" tab
+        console.log("[UserPublicProfileClient] loadMorePins: 'Saved' tab selected, no data fetching implemented yet.");
         fetchedData = { pins: [], error: null };
-        setHasMorePins(false);
+        setHasMorePins(false); // No pagination for saved pins for now
       }
       const { pins: newPins, error } = fetchedData;
 
       if (error) {
+        console.error(`[UserPublicProfileClient] Error fetching ${currentTab} pins for user ${userId}:`, error);
         toast({
           variant: "destructive",
           title: `Error fetching ${currentTab} pins`,
@@ -100,62 +112,80 @@ export default function UserPublicProfileClientContent({
         });
         setHasMorePins(false);
       } else {
+        console.log(`[UserPublicProfileClient] Fetched ${newPins.length} ${currentTab} pins for user ${userId}.`);
         if (newPins.length > 0) {
           setPins((prevPins) =>
             initialLoad ? newPins : [...prevPins, ...newPins],
           );
           setPinsPage(pageToLoad + 1);
-          if (newPins.length < PINS_PER_PAGE) setHasMorePins(false);
+          if (newPins.length < PINS_PER_PAGE) {
+            console.log("[UserPublicProfileClient] loadMorePins: Fetched less than limit, no more pins.");
+            setHasMorePins(false);
+          }
         } else {
+          console.log("[UserPublicProfileClient] loadMorePins: No new pins found.");
           setHasMorePins(false);
         }
       }
       setIsLoadingPins(false);
+      console.log(`[UserPublicProfileClient] Finished loadMorePins for user ${userId}, tab ${currentTab}. isLoadingPins: false, hasMorePins: ${hasMorePins}`);
     },
-    [toast, isLoadingPins, hasMorePins],
+    [toast, isLoadingPins, hasMorePins], // Removed pinsPage from dependencies to avoid loop if not careful
   );
 
   const loadUserProfile = useCallback(
     async (uname: string) => {
+      console.log(`[UserPublicProfileClient] loadUserProfile called for username: ${uname}`);
       setIsLoadingUser(true);
-      setUserData(null);
-      setPins([]);
-      setPinsPage(1);
-      setHasMorePins(true);
+      setUserData(null); // Reset user data on new load
+      setPins([]); // Reset pins
+      setPinsPage(1); // Reset pins page
+      setHasMorePins(true); // Reset hasMorePins
 
       const { profile, error } = await fetchProfileByUsername(uname);
       if (error || !profile) {
+        console.error(`[UserPublicProfileClient] Error fetching profile for @${uname}:`, error || "Profile not found.");
         toast({
           variant: "destructive",
           title: "User Not Found",
           description: error || `Profile for @${uname} could not be loaded.`,
         });
-        router.push("/not-found");
+        router.push("/not-found"); // Redirect to a generic not-found page
       } else {
+        console.log(`[UserPublicProfileClient] Successfully fetched profile for @${uname}:`, profile);
         setUserData(profile);
         if (typeof document !== "undefined") {
           document.title = `${profile.full_name || profile.username}'s Profile | Pinclone`;
         }
+        // Initial pins load is now handled by the useEffect watching userData.id and activeTab
       }
       setIsLoadingUser(false);
+      console.log(`[UserPublicProfileClient] Finished loadUserProfile for @${uname}. isLoadingUser: false`);
     },
     [toast, router],
   );
 
   useEffect(() => {
     if (username) {
+      console.log(`[UserPublicProfileClient] useEffect (username watcher): username is ${username}, calling loadUserProfile.`);
       loadUserProfile(username);
+    } else {
+      console.warn("[UserPublicProfileClient] useEffect (username watcher): username is missing.");
     }
   }, [username, loadUserProfile]);
 
   useEffect(() => {
     if (userData?.id && activeTab) {
+      console.log(`[UserPublicProfileClient] useEffect (userData.id or activeTab watcher): User data loaded (ID: ${userData.id}), active tab: ${activeTab}. Loading initial pins.`);
+      // Reset pins state before loading new ones for the current tab or user
       setPins([]);
       setPinsPage(1);
       setHasMorePins(true);
       loadMorePins(userData.id, 1, true, activeTab);
+    } else {
+      console.log("[UserPublicProfileClient] useEffect (userData.id or activeTab watcher): No userData.id or activeTab, skipping initial pins load.");
     }
-  }, [userData?.id, activeTab, loadMorePins]);
+  }, [userData?.id, activeTab, loadMorePins]); // Dependencies: userData.id and activeTab
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -165,8 +195,9 @@ export default function UserPublicProfileClientContent({
           hasMorePins &&
           !isLoadingPins &&
           userData?.id &&
-          activeTab === "created"
+          activeTab === "created" // Only paginate for "created" tab for now
         ) {
+          console.log("[UserPublicProfileClient] IntersectionObserver: Loader visible, fetching more pins.");
           loadMorePins(userData.id, pinsPage, false, activeTab);
         }
       },
@@ -183,7 +214,7 @@ export default function UserPublicProfileClientContent({
     hasMorePins,
     isLoadingPins,
     pinsPage,
-    userData?.id,
+    userData?.id, // Ensure observer re-evaluates if userData changes
     activeTab,
   ]);
 
@@ -198,7 +229,10 @@ export default function UserPublicProfileClientContent({
     }
     setIsFollowing(!isFollowing);
     // Add actual follow/unfollow logic here
+    toast({ title: isFollowing ? "Unfollowed" : "Followed", description: `You are now ${isFollowing ? 'unfollowing' : 'following'} ${userData?.username || 'this user'}.`});
   };
+
+  console.log(`[UserPublicProfileClient] Rendering. isLoadingUser: ${isLoadingUser}, userData: ${userData ? userData.username : 'null'}`);
 
   if (isLoadingUser) {
     return (
@@ -232,15 +266,17 @@ export default function UserPublicProfileClientContent({
   }
 
   if (!userData) {
+    // This state should ideally be brief if loadUserProfile pushes to /not-found on error.
+    console.warn("[UserPublicProfileClient] Rendering with no userData and not loading. This might indicate an issue.");
     return (
       <div className="flex-1 flex flex-col">
         <div className="flex-grow flex flex-col items-center justify-center text-center p-8">
           <Users className="h-24 w-24 text-muted-foreground/50 mb-6" />
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            User Not Found
+            Profile Not Available
           </h1>
           <p className="text-lg text-muted-foreground mb-8">
-            Sorry, we couldn't find a profile for @{username}.
+            Sorry, we couldn't load the profile for @{username}. It might not exist or there was a temporary issue.
           </p>
           <Button
             onClick={() => router.push("/")}
@@ -254,7 +290,7 @@ export default function UserPublicProfileClientContent({
     );
   }
 
-  const coverPhotoUrl = `https://placehold.co/1600x400.png`;
+  const coverPhotoUrl = `https://placehold.co/1600x400.png`; // Placeholder
   const isOwnProfile = currentUser?.id === userData.id;
 
 
@@ -263,7 +299,7 @@ export default function UserPublicProfileClientContent({
       <div
         className="h-48 sm:h-64 bg-cover bg-center relative"
         style={{ backgroundImage: `url(${coverPhotoUrl})` }}
-        data-ai-hint="profile cover abstract"
+        data-ai-hint="profile cover abstract" // For placeholder generation
       >
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
       </div>
@@ -328,11 +364,12 @@ export default function UserPublicProfileClientContent({
                 )}
                 {currentUser ? (isFollowing ? "Following" : "Follow") : "Login to Follow"}
                 </Button>
-              {currentUser && (
+              {currentUser && ( // Only show message button if current user is logged in
                 <Button
                   variant="outline"
                   size="lg"
                   className="rounded-full px-6 font-medium hover:bg-secondary/50 focus-ring"
+                  // onClick={() => { /* TODO: Implement direct messaging */ toast({ title: "Coming Soon!", description: "Direct messaging is not yet available."})}}
                 >
                   <MessageSquare className="mr-2 h-4 w-4" /> Message
                 </Button>
@@ -370,7 +407,7 @@ export default function UserPublicProfileClientContent({
                 showPinDetailsOverlay={true}
               />
             )}
-            {isLoadingPins && pins.length === 0 && (
+            {isLoadingPins && pins.length === 0 && ( // Show skeletons only if pins are loading and list is empty
               <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap pt-6">
                 {[...Array(6)].map((_, i) => (
                   <div
@@ -384,7 +421,7 @@ export default function UserPublicProfileClientContent({
                 ))}
               </div>
             )}
-            {!hasMorePins && pins.length === 0 && !isLoadingPins && (
+            {!hasMorePins && pins.length === 0 && !isLoadingPins && ( // Shown if no pins ever and not loading
               <div className="text-center py-16">
                 <SearchIconLucide className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-foreground">
@@ -405,7 +442,7 @@ export default function UserPublicProfileClientContent({
               <p className="text-muted-foreground mt-1">
                 @{userData.username} hasn't saved any pins.
               </p>
-               {currentUser && currentUser.id === userData.id && (
+               {currentUser && currentUser.id === userData.id && ( // Only show "Explore" if it's the current user's own profile's saved tab
                  <Button asChild className="mt-6 rounded-full px-6" size="lg">
                     <Link href="/">Explore Pins</Link>
                  </Button>
@@ -414,7 +451,7 @@ export default function UserPublicProfileClientContent({
           </TabsContent>
         </Tabs>
 
-        {isLoadingPins && pins.length > 0 && (
+        {isLoadingPins && pins.length > 0 && ( // Show spinner only if loading more and some pins are already there
           <div className="h-20 w-full flex justify-center items-center mt-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
