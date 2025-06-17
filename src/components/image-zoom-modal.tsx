@@ -1,14 +1,21 @@
+
 "use client";
 
 import Image from "next/image";
-import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogOverlay,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import type { Pin } from "@/types";
 import { X, Download, Link2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "./ui/skeleton";
-import { useState, useEffect } from "react"; // useEffect might be needed if we reset loading state based on isOpen prop
-import { cn } from "@/lib/utils"; // Added missing import for cn
+import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 interface ImageZoomModalProps {
   pin: Pin | null;
@@ -24,12 +31,11 @@ export default function ImageZoomModal({
   const { toast } = useToast();
   const [isImageLoading, setIsImageLoading] = useState(true);
 
-  // Reset loading state when modal becomes visible or pin changes
   useEffect(() => {
     if (isOpen) {
       setIsImageLoading(true);
     }
-  }, [isOpen, pin?.id]); // Depend on pin.id as well in case the same modal instance is reused for different pins
+  }, [isOpen, pin?.id]);
 
   if (!pin) return null;
 
@@ -104,12 +110,12 @@ export default function ImageZoomModal({
       >
         <div className="relative bg-card rounded-xl shadow-modal w-auto h-auto max-w-[95vw] max-h-[90vh] flex flex-col animate-scale-in">
           <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 via-black/20 to-transparent rounded-t-xl">
-            <p
+            <DialogTitle
               id="image-zoom-title"
               className="text-sm sm:text-base font-semibold text-white truncate max-w-[calc(100%-140px)]"
             >
               {pin.title || "Image Preview"}
-            </p>
+            </DialogTitle>
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
@@ -167,9 +173,12 @@ export default function ImageZoomModal({
               sizes="90vw"
             />
           </div>
-          <div id="image-zoom-description" className="sr-only">
+          <DialogDescription
+            id="image-zoom-description"
+            className="sr-only"
+          >
             Enlarged view of: {pin.title || "Image"}. Press escape to close.
-          </div>
+          </DialogDescription>
         </div>
       </DialogContent>
     </Dialog>
