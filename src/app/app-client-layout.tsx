@@ -133,7 +133,7 @@ export default function AppClientLayout({
     } else if (message && message === 'confirmation_pending') {
        toast({
         title: "Signup Almost Complete!",
-        description: "Please check your email to confirm your account.",
+        description: "We've sent a confirmation link to your email. Please check your inbox (and spam folder) to verify your account.",
       });
       router.replace(pathname, { scroll: false });
     }
