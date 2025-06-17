@@ -1,3 +1,4 @@
+
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import AppClientLayout from "./app-client-layout";
@@ -5,18 +6,20 @@ import "./globals.css";
 import { Loader2 } from "lucide-react";
 import { Poppins, PT_Sans } from "next/font/google";
 
+// Initialize Poppins font with specified subsets, display strategy, weights, and CSS variable.
 const poppins = Poppins({
   subsets: ["latin"],
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-poppins",
+  display: "swap", // Ensures text remains visible during font loading by using a fallback font.
+  weight: ["300", "400", "500", "600", "700"], // Specifies the font weights to load.
+  variable: "--font-poppins", // CSS variable for use in Tailwind.
 });
 
+// Initialize PT Sans font with specified subsets, display strategy, weights, and CSS variable.
 const ptSans = PT_Sans({
   subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "700"],
-  variable: "--font-pt-sans",
+  display: "swap", // Ensures text remains visible during font loading.
+  weight: ["400", "700"], // Specifies the font weights to load.
+  variable: "--font-pt-sans", // CSS variable for use in Tailwind.
 });
 
 export const metadata: Metadata = {
@@ -34,10 +37,10 @@ export const metadata: Metadata = {
     "supabase",
     "nextjs",
   ],
-  manifest: "/manifest.json", // You would need to create a public/manifest.json file
+  manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico", // You would need to create a public/favicon.ico file
-    apple: "/apple-touch-icon.png", // You would need to create a public/apple-touch-icon.png
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 };
 
@@ -65,11 +68,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${poppins.variable} ${ptSans.variable}`}
+      className={`${poppins.variable} ${ptSans.variable}`} // Apply font variables to HTML tag.
       suppressHydrationWarning // Recommended for Next.js 13+ App Router with theme switching
     >
       <head>
-        {/* No direct Google Font links needed here as next/font handles it */}
+        {/* next/font handles optimized font loading. No direct <link> tags for Google Fonts needed here. */}
+        {/* Preload warnings in the browser console regarding fonts are often performance hints and may not indicate critical issues if fonts display correctly. */}
       </head>
       <body>
         <Suspense fallback={<LayoutSuspenseFallback />}>

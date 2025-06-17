@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { fetchPinById } from "@/services/pinService";
@@ -12,15 +13,28 @@ export async function generateMetadata({
 }: {
   params: { id: string };
 }): Promise<Metadata> {
-  // Ensure fetchPinById is robust to ID not found scenarios for metadata generation
-  const { pin } = await fetchPinById(params.id);
+  console.log(`[generateMetadata /pin/${params.id}] Attempting to fetch pin data for metadata.`);
+  const { pin, error: fetchError } = await fetchPinById(params.id);
+  console.log(`[generateMetadata /pin/${params.id}] Service call fetchPinById returned:`, { pinId: params.id, pinData: pin, error: fetchError });
+
+  if (fetchError) {
+    console.error(`[generateMetadata /pin/${params.id}] Error received while fetching pin for metadata: ${fetchError}. Pin object:`, pin);
+    // Return fallback metadata to prevent metadata generation from crashing the page
+    return {
+      title: "Error Loading Pin | Pinclone",
+      description: "There was an error loading the details for this pin.",
+    };
+  }
 
   if (!pin) {
+    console.warn(`[generateMetadata /pin/${params.id}] Pin not found (pin object is null) for ID: ${params.id}. Error from fetch: ${fetchError || 'None'}`);
     return {
       title: "Pin Not Found | Pinclone",
       description: "The pin you are looking for could not be found.",
     };
   }
+
+  console.log(`[generateMetadata /pin/${params.id}] Successfully fetched pin for metadata. Pin ID: ${pin.id}, Title: ${pin.title || "Untitled Pin"}`);
 
   return {
     title: `${pin.title || "Untitled Pin"} by ${pin.uploader?.full_name || pin.uploader?.username || "a user"} | Pinclone`,
