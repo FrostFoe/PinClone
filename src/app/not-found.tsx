@@ -1,9 +1,8 @@
-
 // src/app/not-found.tsx
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import PincloneLogo from '@/components/pinclone-logo';
-import { Compass, AlertTriangle } from 'lucide-react';
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import PincloneLogo from "@/components/pinclone-logo";
+import { Compass, AlertTriangle } from "lucide-react";
 
 export default function NotFound() {
   return (
@@ -18,17 +17,29 @@ export default function NotFound() {
         Oops! Page Not Found.
       </h2>
       <p className="mt-4 text-lg text-muted-foreground max-w-md">
-        It seems you've ventured into uncharted territory. The page you're looking for doesn't exist or has been moved.
+        It seems you've ventured into uncharted territory. The page you're
+        looking for doesn't exist or has been moved.
       </p>
       <div className="mt-10 flex items-center justify-center gap-x-6">
-        <Button asChild size="lg" className="rounded-full px-8 py-3 text-base font-semibold bg-primary hover:bg-primary/90 shadow-lg focus-ring">
+        <Button
+          asChild
+          size="lg"
+          className="rounded-full px-8 py-3 text-base font-semibold bg-primary hover:bg-primary/90 shadow-lg focus-ring"
+        >
           <Link href="/">
             <Compass className="mr-2 h-5 w-5" />
             Go Back Home
           </Link>
         </Button>
-        <Button asChild variant="outline" size="lg" className="rounded-full px-8 py-3 text-base font-semibold focus-ring hover:bg-secondary/70">
-          <Link href="/help"> {/* Assuming a help page might exist */}
+        <Button
+          asChild
+          variant="outline"
+          size="lg"
+          className="rounded-full px-8 py-3 text-base font-semibold focus-ring hover:bg-secondary/70"
+        >
+          <Link href="/help">
+            {" "}
+            {/* Assuming a help page might exist */}
             Contact Support
           </Link>
         </Button>

@@ -1,21 +1,20 @@
+"use client";
 
-'use client';
-
-import type { Pin } from '@/types';
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Textarea } from '@/components/ui/textarea';
+import type { Pin } from "@/types";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft,
   Maximize2,
@@ -29,14 +28,13 @@ import {
   MoreHorizontal,
   Heart,
   Share2 as ShareIcon,
-} from 'lucide-react';
-import PinGrid from '@/components/pin-grid';
-import { Skeleton } from '@/components/ui/skeleton';
-import ImageZoomModal from '@/components/image-zoom-modal';
-import { fetchPinById, fetchPinsByUserId } from '@/services/pinService';
-import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
-
+} from "lucide-react";
+import PinGrid from "@/components/pin-grid";
+import { Skeleton } from "@/components/ui/skeleton";
+import ImageZoomModal from "@/components/image-zoom-modal";
+import { fetchPinById, fetchPinsByUserId } from "@/services/pinService";
+import { useToast } from "@/hooks/use-toast";
+import { formatDistanceToNow } from "date-fns";
 
 const RELATED_PINS_LIMIT = 10;
 
@@ -55,53 +53,82 @@ export default function PinDetailPage() {
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
 
-  const loadPinDetails = useCallback(async (id: string) => {
-    setIsLoadingPin(true);
-    setPinDetail(null); // Reset on new ID
-    setRelatedPins([]); // Reset related pins
-    setRelatedPage(1);
-    setHasMoreRelated(true);
+  const loadPinDetails = useCallback(
+    async (id: string) => {
+      setIsLoadingPin(true);
+      setPinDetail(null); // Reset on new ID
+      setRelatedPins([]); // Reset related pins
+      setRelatedPage(1);
+      setHasMoreRelated(true);
 
-    const { pin, error } = await fetchPinById(id);
-    if (error || !pin) {
-      toast({ variant: 'destructive', title: 'Error', description: error || 'Pin not found.' });
-      // router.push('/not-found'); // Optionally redirect to a 404 page
-    } else {
-      setPinDetail(pin);
-      if (pin.user_id) {
-        loadMoreRelatedPins(pin.user_id, 1, true, pin.id);
+      const { pin, error } = await fetchPinById(id);
+      if (error || !pin) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error || "Pin not found.",
+        });
+        // router.push('/not-found'); // Optionally redirect to a 404 page
       } else {
-        setHasMoreRelated(false);
+        setPinDetail(pin);
+        if (pin.user_id) {
+          loadMoreRelatedPins(pin.user_id, 1, true, pin.id);
+        } else {
+          setHasMoreRelated(false);
+        }
       }
-    }
-    setIsLoadingPin(false);
-  }, [toast]);
+      setIsLoadingPin(false);
+    },
+    [toast],
+  );
 
-  const loadMoreRelatedPins = useCallback(async (userId: string, pageToLoad: number, initialLoad = false, currentPinId: string) => {
-    if (isLoadingRelated && !initialLoad) return;
-    if (!hasMoreRelated && !initialLoad) return;
+  const loadMoreRelatedPins = useCallback(
+    async (
+      userId: string,
+      pageToLoad: number,
+      initialLoad = false,
+      currentPinId: string,
+    ) => {
+      if (isLoadingRelated && !initialLoad) return;
+      if (!hasMoreRelated && !initialLoad) return;
 
-    setIsLoadingRelated(true);
-    const { pins: newPins, error } = await fetchPinsByUserId(userId, pageToLoad, RELATED_PINS_LIMIT);
+      setIsLoadingRelated(true);
+      const { pins: newPins, error } = await fetchPinsByUserId(
+        userId,
+        pageToLoad,
+        RELATED_PINS_LIMIT,
+      );
 
-    if (error) {
-      toast({ variant: 'destructive', title: 'Error fetching related pins', description: error });
-      setHasMoreRelated(false);
-    } else {
-      const filteredNewPins = newPins.filter(p => p.id !== currentPinId); // Exclude current pin
-      if (filteredNewPins.length > 0) {
-        setRelatedPins((prevPins) => initialLoad ? filteredNewPins : [...prevPins, ...filteredNewPins]);
-        setRelatedPage(pageToLoad + 1);
-        if (newPins.length < RELATED_PINS_LIMIT) setHasMoreRelated(false);
-      } else if (initialLoad && newPins.length <=1 && newPins[0]?.id === currentPinId) { // if only the current pin was returned
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Error fetching related pins",
+          description: error,
+        });
         setHasMoreRelated(false);
-      } else if (newPins.length === 0) {
-        setHasMoreRelated(false);
+      } else {
+        const filteredNewPins = newPins.filter((p) => p.id !== currentPinId); // Exclude current pin
+        if (filteredNewPins.length > 0) {
+          setRelatedPins((prevPins) =>
+            initialLoad ? filteredNewPins : [...prevPins, ...filteredNewPins],
+          );
+          setRelatedPage(pageToLoad + 1);
+          if (newPins.length < RELATED_PINS_LIMIT) setHasMoreRelated(false);
+        } else if (
+          initialLoad &&
+          newPins.length <= 1 &&
+          newPins[0]?.id === currentPinId
+        ) {
+          // if only the current pin was returned
+          setHasMoreRelated(false);
+        } else if (newPins.length === 0) {
+          setHasMoreRelated(false);
+        }
       }
-    }
-    setIsLoadingRelated(false);
-  }, [toast, isLoadingRelated, hasMoreRelated]);
-
+      setIsLoadingRelated(false);
+    },
+    [toast, isLoadingRelated, hasMoreRelated],
+  );
 
   useEffect(() => {
     if (pinId) {
@@ -112,11 +139,22 @@ export default function PinDetailPage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMoreRelated && !isLoadingRelated && pinDetail?.user_id && pinDetail.id) {
-          loadMoreRelatedPins(pinDetail.user_id, relatedPage, false, pinDetail.id);
+        if (
+          entries[0].isIntersecting &&
+          hasMoreRelated &&
+          !isLoadingRelated &&
+          pinDetail?.user_id &&
+          pinDetail.id
+        ) {
+          loadMoreRelatedPins(
+            pinDetail.user_id,
+            relatedPage,
+            false,
+            pinDetail.id,
+          );
         }
       },
-      { threshold: 0.8 }
+      { threshold: 0.8 },
     );
 
     const currentLoaderRef = loaderRef.current;
@@ -126,7 +164,13 @@ export default function PinDetailPage() {
     return () => {
       if (currentLoaderRef) observer.unobserve(currentLoaderRef);
     };
-  }, [loadMoreRelatedPins, hasMoreRelated, isLoadingRelated, pinDetail, relatedPage]);
+  }, [
+    loadMoreRelatedPins,
+    hasMoreRelated,
+    isLoadingRelated,
+    pinDetail,
+    relatedPage,
+  ]);
 
   const openZoomModal = () => {
     if (pinDetail) setIsZoomModalOpen(true);
@@ -136,9 +180,9 @@ export default function PinDetailPage() {
     return (
       <div className="flex flex-col min-h-screen bg-background animate-fade-in">
         <div className="sticky top-[var(--header-height)] z-20 h-[var(--header-height)] bg-background/80 backdrop-blur-md flex items-center px-4 border-b">
-            <Skeleton className="h-8 w-8 rounded-full mr-2" />
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-9 w-20 ml-auto rounded-full" />
+          <Skeleton className="h-8 w-8 rounded-full mr-2" />
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-9 w-20 ml-auto rounded-full" />
         </div>
         <div className="mx-auto my-4 sm:my-8 w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl p-2 sm:p-4">
           <div className="bg-card rounded-3xl shadow-card overflow-hidden">
@@ -172,9 +216,17 @@ export default function PinDetailPage() {
     return (
       <div className="flex flex-col min-h-screen bg-background justify-center items-center p-8 animate-fade-in">
         <SearchIconLucide className="h-24 w-24 text-muted-foreground/50 mb-6" />
-        <h1 className="text-3xl font-bold text-foreground mb-2">Pin Not Found</h1>
-        <p className="text-lg text-muted-foreground mb-8 text-center">Oops! We couldn't find the pin you were looking for.</p>
-        <Button onClick={() => router.push('/')} size="lg" className="rounded-full px-8">
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          Pin Not Found
+        </h1>
+        <p className="text-lg text-muted-foreground mb-8 text-center">
+          Oops! We couldn't find the pin you were looking for.
+        </p>
+        <Button
+          onClick={() => router.push("/")}
+          size="lg"
+          className="rounded-full px-8"
+        >
           <ArrowLeft className="mr-2 h-5 w-5" /> Go Back Home
         </Button>
       </div>
@@ -182,46 +234,90 @@ export default function PinDetailPage() {
   }
 
   const displayWidth = pinDetail.width || 600;
-  const displayHeight = pinDetail.height || (displayWidth * 1.2);
-
+  const displayHeight = pinDetail.height || displayWidth * 1.2;
 
   return (
     <>
       <div className="flex flex-col min-h-[calc(100vh-var(--header-height))] bg-background animate-fade-in">
         {/* Sub-header for Pin Detail Page, sticky under main AppHeader */}
         <div className="sticky top-[var(--header-height)] z-30 bg-background/90 backdrop-blur-md flex items-center px-2 sm:px-4 border-b h-[var(--header-height)]">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back" className="mr-1 sm:mr-2 rounded-full text-foreground/80 hover:text-primary hover:bg-primary/10">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            aria-label="Go back"
+            className="mr-1 sm:mr-2 rounded-full text-foreground/80 hover:text-primary hover:bg-primary/10"
+          >
             <ArrowLeft className="h-6 w-6" />
           </Button>
           {pinDetail.uploader && (
-            <Link href={`/u/${pinDetail.uploader.username}`} className="flex items-center gap-2 overflow-hidden group">
+            <Link
+              href={`/u/${pinDetail.uploader.username}`}
+              className="flex items-center gap-2 overflow-hidden group"
+            >
               <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
-                <AvatarImage src={pinDetail.uploader.avatar_url || undefined} alt={pinDetail.uploader.full_name || pinDetail.uploader.username || 'Uploader'} data-ai-hint="uploader avatar small" />
-                <AvatarFallback>{pinDetail.uploader.full_name?.[0]?.toUpperCase() || pinDetail.uploader.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                <AvatarImage
+                  src={pinDetail.uploader.avatar_url || undefined}
+                  alt={
+                    pinDetail.uploader.full_name ||
+                    pinDetail.uploader.username ||
+                    "Uploader"
+                  }
+                  data-ai-hint="uploader avatar small"
+                />
+                <AvatarFallback>
+                  {pinDetail.uploader.full_name?.[0]?.toUpperCase() ||
+                    pinDetail.uploader.username?.[0]?.toUpperCase() ||
+                    "U"}
+                </AvatarFallback>
               </Avatar>
               <div className="hidden sm:block">
-                <p className="font-semibold text-sm truncate group-hover:text-primary">{pinDetail.uploader.full_name || pinDetail.uploader.username}</p>
-                {pinDetail.uploader.username && <p className="text-xs text-muted-foreground truncate">@{pinDetail.uploader.username}</p>}
+                <p className="font-semibold text-sm truncate group-hover:text-primary">
+                  {pinDetail.uploader.full_name || pinDetail.uploader.username}
+                </p>
+                {pinDetail.uploader.username && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    @{pinDetail.uploader.username}
+                  </p>
+                )}
               </div>
             </Link>
           )}
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="More options" className="rounded-full text-foreground/80 hover:text-primary hover:bg-primary/10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="More options"
+                  className="rounded-full text-foreground/80 hover:text-primary hover:bg-primary/10"
+                >
                   <MoreHorizontal className="h-6 w-6" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="shadow-modal">
-                <DropdownMenuItem><Download className="mr-2 h-4 w-4" /> Download image</DropdownMenuItem>
-                <DropdownMenuItem><Link2 className="mr-2 h-4 w-4" /> Copy link</DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Download className="mr-2 h-4 w-4" /> Download image
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link2 className="mr-2 h-4 w-4" /> Copy link
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem><Flag className="mr-2 h-4 w-4" /> Report Pin</DropdownMenuItem>
-                <DropdownMenuItem><Code2 className="mr-2 h-4 w-4" /> Get Pin embed code</DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Flag className="mr-2 h-4 w-4" /> Report Pin
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Code2 className="mr-2 h-4 w-4" /> Get Pin embed code
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             {/* Save to board functionality to be added later */}
-            <Button size="lg" className="rounded-full px-5 sm:px-6 bg-primary hover:bg-primary/90 text-primary-foreground">Save</Button>
+            <Button
+              size="lg"
+              className="rounded-full px-5 sm:px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              Save
+            </Button>
           </div>
         </div>
 
@@ -229,68 +325,141 @@ export default function PinDetailPage() {
           <div className="mt-4 sm:mt-8 mx-auto w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl px-2 sm:px-4">
             <div className="bg-card rounded-3xl shadow-xl overflow-hidden">
               <div className="flex flex-col lg:flex-row gap-0">
-                <div className="lg:w-[55%] xl:w-1/2 bg-muted/30 flex justify-center items-center p-4 sm:p-6 md:p-8 relative group cursor-pointer" onClick={openZoomModal}>
+                <div
+                  className="lg:w-[55%] xl:w-1/2 bg-muted/30 flex justify-center items-center p-4 sm:p-6 md:p-8 relative group cursor-pointer"
+                  onClick={openZoomModal}
+                >
                   {pinDetail.image_url ? (
                     <Image
                       src={pinDetail.image_url}
-                      alt={pinDetail.title || 'Pin image'}
+                      alt={pinDetail.title || "Pin image"}
                       width={displayWidth > 800 ? 800 : displayWidth}
-                      height={(displayWidth > 800 ? 800 : displayWidth) / (displayWidth/displayHeight)}
+                      height={
+                        (displayWidth > 800 ? 800 : displayWidth) /
+                        (displayWidth / displayHeight)
+                      }
                       className="rounded-2xl object-contain w-full h-full max-h-[75vh] shadow-md"
-                      data-ai-hint={pinDetail.title || 'pin detail'}
+                      data-ai-hint={pinDetail.title || "pin detail"}
                       priority
                     />
-                  ) : <Skeleton className="w-full h-[400px] rounded-2xl" />}
+                  ) : (
+                    <Skeleton className="w-full h-[400px] rounded-2xl" />
+                  )}
                   <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 flex flex-col gap-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <Button variant="secondary" size="icon" className="rounded-full h-10 w-10 bg-black/40 hover:bg-black/60 text-white border-none shadow-md" aria-label="Zoom image" onClick={(e) => {e.stopPropagation(); openZoomModal();}}>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="rounded-full h-10 w-10 bg-black/40 hover:bg-black/60 text-white border-none shadow-md"
+                      aria-label="Zoom image"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openZoomModal();
+                      }}
+                    >
                       <Maximize2 className="h-5 w-5" />
                     </Button>
                   </div>
                 </div>
 
                 <div className="lg:w-[45%] xl:w-1/2 flex flex-col p-4 sm:p-6 md:p-8">
-                  {pinDetail.title && <h1 className="text-2xl sm:text-3xl font-bold font-headline leading-tight mb-3">{pinDetail.title}</h1>}
-                  {pinDetail.description && <p className="text-base text-foreground/80 mb-6 leading-relaxed whitespace-pre-wrap">{pinDetail.description}</p>}
-                  
+                  {pinDetail.title && (
+                    <h1 className="text-2xl sm:text-3xl font-bold font-headline leading-tight mb-3">
+                      {pinDetail.title}
+                    </h1>
+                  )}
+                  {pinDetail.description && (
+                    <p className="text-base text-foreground/80 mb-6 leading-relaxed whitespace-pre-wrap">
+                      {pinDetail.description}
+                    </p>
+                  )}
+
                   {pinDetail.uploader && (
                     <div className="flex items-center justify-between mb-6">
-                      <Link href={`/u/${pinDetail.uploader.username}`} className="flex items-center gap-3 group focus-ring rounded-full p-1 -m-1">
+                      <Link
+                        href={`/u/${pinDetail.uploader.username}`}
+                        className="flex items-center gap-3 group focus-ring rounded-full p-1 -m-1"
+                      >
                         <Avatar className="h-12 w-12">
-                           <AvatarImage src={pinDetail.uploader.avatar_url || undefined} alt={pinDetail.uploader.full_name || pinDetail.uploader.username || 'Uploader'} data-ai-hint="uploader avatar large" />
-                           <AvatarFallback className="text-lg">{pinDetail.uploader.full_name?.[0]?.toUpperCase() || pinDetail.uploader.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                          <AvatarImage
+                            src={pinDetail.uploader.avatar_url || undefined}
+                            alt={
+                              pinDetail.uploader.full_name ||
+                              pinDetail.uploader.username ||
+                              "Uploader"
+                            }
+                            data-ai-hint="uploader avatar large"
+                          />
+                          <AvatarFallback className="text-lg">
+                            {pinDetail.uploader.full_name?.[0]?.toUpperCase() ||
+                              pinDetail.uploader.username?.[0]?.toUpperCase() ||
+                              "U"}
+                          </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-semibold text-md group-hover:text-primary transition-colors">{pinDetail.uploader.full_name || pinDetail.uploader.username}</p>
-                          {pinDetail.uploader.username && <p className="text-sm text-muted-foreground">@{pinDetail.uploader.username}</p>}
+                          <p className="font-semibold text-md group-hover:text-primary transition-colors">
+                            {pinDetail.uploader.full_name ||
+                              pinDetail.uploader.username}
+                          </p>
+                          {pinDetail.uploader.username && (
+                            <p className="text-sm text-muted-foreground">
+                              @{pinDetail.uploader.username}
+                            </p>
+                          )}
                         </div>
                       </Link>
-                      <Button variant="secondary" className="rounded-full px-5 h-10 text-sm font-medium hover:bg-secondary/80 focus-ring">Follow</Button>
+                      <Button
+                        variant="secondary"
+                        className="rounded-full px-5 h-10 text-sm font-medium hover:bg-secondary/80 focus-ring"
+                      >
+                        Follow
+                      </Button>
                     </div>
                   )}
-                  
+
                   <div className="text-xs text-muted-foreground mb-6">
-                    Uploaded {formatDistanceToNow(new Date(pinDetail.created_at), { addSuffix: true })}
+                    Uploaded{" "}
+                    {formatDistanceToNow(new Date(pinDetail.created_at), {
+                      addSuffix: true,
+                    })}
                   </div>
-                  
+
                   <div className="mt-auto">
                     <h3 className="font-semibold text-lg mb-3">Comments (0)</h3>
                     <div className="space-y-4 mb-6 max-h-60 overflow-y-auto pr-2">
-                      <p className="text-sm text-muted-foreground">No comments yet. Be the first to share your thoughts!</p>
+                      <p className="text-sm text-muted-foreground">
+                        No comments yet. Be the first to share your thoughts!
+                      </p>
                     </div>
                     <div className="flex items-start gap-3">
                       <Avatar className="h-10 w-10 mt-1">
-                        <AvatarImage src="https://placehold.co/40x40.png?text=Me" alt="Your avatar" data-ai-hint="profile avatar current user" />
+                        <AvatarImage
+                          src="https://placehold.co/40x40.png?text=Me"
+                          alt="Your avatar"
+                          data-ai-hint="profile avatar current user"
+                        />
                         <AvatarFallback>Me</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 relative">
-                        <Textarea placeholder="Add a comment..." className="rounded-2xl pr-20 min-h-[48px] py-3 text-sm resize-none focus-ring" rows={1}/>
+                        <Textarea
+                          placeholder="Add a comment..."
+                          className="rounded-2xl pr-20 min-h-[48px] py-3 text-sm resize-none focus-ring"
+                          rows={1}
+                        />
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary rounded-full">
-                                <Smile className="h-5 w-5"/>
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary rounded-full">
-                                <Send className="h-5 w-5"/>
-                            </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-primary rounded-full"
+                          >
+                            <Smile className="h-5 w-5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-primary rounded-full"
+                          >
+                            <Send className="h-5 w-5" />
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -300,35 +469,63 @@ export default function PinDetailPage() {
             </div>
           </div>
 
-          {(relatedPins.length > 0 || (isLoadingRelated && relatedPins.length === 0)) && (
+          {(relatedPins.length > 0 ||
+            (isLoadingRelated && relatedPins.length === 0)) && (
             <div className="mt-12 sm:mt-16 container mx-auto px-2 sm:px-4">
-              <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center font-headline">More like this</h2>
-              <PinGrid pins={relatedPins} onPinClick={(pin) => router.push(`/pin/${pin.id}`)} />
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center font-headline">
+                More like this
+              </h2>
+              <PinGrid
+                pins={relatedPins}
+                onPinClick={(pin) => router.push(`/pin/${pin.id}`)}
+              />
               {isLoadingRelated && relatedPins.length === 0 && (
                 <div className="masonry-grid px-grid-gap md:px-0 mt-grid-gap">
                   {[...Array(6)].map((_, i) => (
-                    <div key={`skeleton-related-${i}`} className="break-inside-avoid mb-grid-gap">
-                      <Skeleton className={`w-full h-[${180 + Math.floor(Math.random() * 150)}px] rounded-2xl bg-muted/80`} />
+                    <div
+                      key={`skeleton-related-${i}`}
+                      className="break-inside-avoid mb-grid-gap"
+                    >
+                      <Skeleton
+                        className={`w-full h-[${180 + Math.floor(Math.random() * 150)}px] rounded-2xl bg-muted/80`}
+                      />
                     </div>
                   ))}
                 </div>
               )}
-              <div ref={loaderRef} className="h-20 w-full flex justify-center items-center" aria-hidden="true">
-                 {isLoadingRelated && relatedPins.length > 0 && (
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                 )}
+              <div
+                ref={loaderRef}
+                className="h-20 w-full flex justify-center items-center"
+                aria-hidden="true"
+              >
+                {isLoadingRelated && relatedPins.length > 0 && (
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                )}
               </div>
               {!hasMoreRelated && relatedPins.length > 0 && (
-                <p className="text-center text-muted-foreground font-medium py-10 text-lg">✨ You've explored all related pins! ✨</p>
+                <p className="text-center text-muted-foreground font-medium py-10 text-lg">
+                  ✨ You've explored all related pins! ✨
+                </p>
               )}
-               {!hasMoreRelated && relatedPins.length === 0 && !isLoadingRelated && pinDetail && (
-                <p className="text-center text-muted-foreground py-8">No more pins from this uploader.</p>
-              )}
+              {!hasMoreRelated &&
+                relatedPins.length === 0 &&
+                !isLoadingRelated &&
+                pinDetail && (
+                  <p className="text-center text-muted-foreground py-8">
+                    No more pins from this uploader.
+                  </p>
+                )}
             </div>
           )}
         </main>
       </div>
-      {pinDetail && <ImageZoomModal pin={pinDetail} isOpen={isZoomModalOpen} onClose={() => setIsZoomModalOpen(false)} />}
+      {pinDetail && (
+        <ImageZoomModal
+          pin={pinDetail}
+          isOpen={isZoomModalOpen}
+          onClose={() => setIsZoomModalOpen(false)}
+        />
+      )}
     </>
   );
 }

@@ -1,24 +1,23 @@
+"use client";
 
-'use client';
-
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import PincloneLogo from '@/components/pinclone-logo';
-import { User, Mail, Lock, FileSignature, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import PincloneLogo from "@/components/pinclone-logo";
+import { User, Mail, Lock, FileSignature, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createSupabaseBrowserClient();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -32,40 +31,48 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        data: { 
+        data: {
           full_name: fullName,
           // You might also want to pre-generate a username here or handle it in the trigger
-        }
-      }
+        },
+      },
     });
 
     setIsLoading(false);
 
     if (error) {
       toast({
-        variant: 'destructive',
-        title: 'Signup Failed',
-        description: error.message || 'Could not create your account. Please try again.',
+        variant: "destructive",
+        title: "Signup Failed",
+        description:
+          error.message || "Could not create your account. Please try again.",
       });
-    } else if (data.user && data.user.identities && data.user.identities.length === 0) {
-       toast({
-        title: 'Email already registered',
-        description: 'This email is already in use. Please try logging in or use a different email.',
-        variant: 'destructive',
+    } else if (
+      data.user &&
+      data.user.identities &&
+      data.user.identities.length === 0
+    ) {
+      toast({
+        title: "Email already registered",
+        description:
+          "This email is already in use. Please try logging in or use a different email.",
+        variant: "destructive",
       });
     } else if (data.user) {
       toast({
-        title: 'Signup Successful!',
-        description: "Welcome! Please check your email to confirm your account. You're being redirected...",
+        title: "Signup Successful!",
+        description:
+          "Welcome! Please check your email to confirm your account. You're being redirected...",
       });
       // Redirect to a page that informs user to check email, or directly to login/home.
       // For simplicity, redirecting to login. After email confirmation, user can login.
-      router.push('/login'); 
+      router.push("/login");
     } else {
-       toast({
-        variant: 'destructive',
-        title: 'Signup Issue',
-        description: 'An unexpected issue occurred during signup. Please try again.',
+      toast({
+        variant: "destructive",
+        title: "Signup Issue",
+        description:
+          "An unexpected issue occurred during signup. Please try again.",
       });
     }
   };
@@ -85,9 +92,14 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 p-8 bg-card shadow-xl rounded-2xl">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 p-8 bg-card shadow-xl rounded-2xl"
+        >
           <div>
-            <Label htmlFor="fullName" className="text-foreground/80">Full Name</Label>
+            <Label htmlFor="fullName" className="text-foreground/80">
+              Full Name
+            </Label>
             <div className="relative mt-1">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
@@ -104,9 +116,11 @@ export default function SignupPage() {
               />
             </div>
           </div>
-          
+
           <div>
-            <Label htmlFor="email" className="text-foreground/80">Email address</Label>
+            <Label htmlFor="email" className="text-foreground/80">
+              Email address
+            </Label>
             <div className="relative mt-1">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
@@ -125,7 +139,9 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <Label htmlFor="password" className="text-foreground/80">Password</Label>
+            <Label htmlFor="password" className="text-foreground/80">
+              Password
+            </Label>
             <div className="relative mt-1">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
@@ -145,21 +161,38 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <Button type="submit" className="w-full h-12 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 focus-ring" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileSignature className="mr-2 h-5 w-5" />}
-              {isLoading ? 'Signing up...' : 'Sign Up'}
+            <Button
+              type="submit"
+              className="w-full h-12 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 focus-ring"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <FileSignature className="mr-2 h-5 w-5" />
+              )}
+              {isLoading ? "Signing up..." : "Sign Up"}
             </Button>
           </div>
-           <p className="text-xs text-muted-foreground text-center pt-2">
-            By signing up, you agree to our{' '}
-            <Link href="/terms" className="underline hover:text-primary">Terms of Service</Link> and{' '}
-            <Link href="/privacy" className="underline hover:text-primary">Privacy Policy</Link>.
+          <p className="text-xs text-muted-foreground text-center pt-2">
+            By signing up, you agree to our{" "}
+            <Link href="/terms" className="underline hover:text-primary">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline hover:text-primary">
+              Privacy Policy
+            </Link>
+            .
           </p>
         </form>
 
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Already have an account?{' '}
-          <Link href="/login" className="font-medium text-primary hover:text-primary/80">
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="font-medium text-primary hover:text-primary/80"
+          >
             Log in
           </Link>
         </p>

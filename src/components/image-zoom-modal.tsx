@@ -1,14 +1,13 @@
+"use client";
 
-'use client';
-
-import Image from 'next/image';
-import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
-import type { Pin } from '@/types';
-import { X, Download, Link2 } from 'lucide-react';
-import { Button } from './ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from './ui/skeleton';
-import { useState } from 'react';
+import Image from "next/image";
+import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
+import type { Pin } from "@/types";
+import { X, Download, Link2 } from "lucide-react";
+import { Button } from "./ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "./ui/skeleton";
+import { useState } from "react";
 
 interface ImageZoomModalProps {
   pin: Pin | null;
@@ -16,29 +15,39 @@ interface ImageZoomModalProps {
   onClose: () => void;
 }
 
-export default function ImageZoomModal({ pin, isOpen, onClose }: ImageZoomModalProps) {
+export default function ImageZoomModal({
+  pin,
+  isOpen,
+  onClose,
+}: ImageZoomModalProps) {
   const { toast } = useToast();
   const [isImageLoading, setIsImageLoading] = useState(true);
 
   if (!pin) return null;
 
-  const imageWidth = pin.width || 800; 
-  const imageHeight = pin.height || Math.round(imageWidth * 1.2); 
-  
+  const imageWidth = pin.width || 800;
+  const imageHeight = pin.height || Math.round(imageWidth * 1.2);
+
   const handleDownload = async () => {
     if (!pin.image_url) {
-      toast({ variant: "destructive", title: "Download failed", description: "Image source is not available." });
+      toast({
+        variant: "destructive",
+        title: "Download failed",
+        description: "Image source is not available.",
+      });
       return;
     }
     try {
       const response = await fetch(pin.image_url);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       // Try to derive a filename, ensuring it's valid
-      const titleSanitized = pin.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'pin_image';
-      const fileExtension = pin.image_url.split('.').pop()?.split('?')[0] || 'png'; // Basic extension detection
+      const titleSanitized =
+        pin.title?.replace(/[^a-z0-9]/gi, "_").toLowerCase() || "pin_image";
+      const fileExtension =
+        pin.image_url.split(".").pop()?.split("?")[0] || "png"; // Basic extension detection
       link.download = `${titleSanitized}.${fileExtension}`;
       document.body.appendChild(link);
       link.click();
@@ -46,31 +55,46 @@ export default function ImageZoomModal({ pin, isOpen, onClose }: ImageZoomModalP
       window.URL.revokeObjectURL(url);
       toast({ title: "Image Download Started" });
     } catch (error) {
-      toast({ variant: "destructive", title: "Download failed", description: "Could not download image." });
+      toast({
+        variant: "destructive",
+        title: "Download failed",
+        description: "Could not download image.",
+      });
     }
   };
 
   const handleCopyLink = () => {
     const pinUrl = `${window.location.origin}/pin/${pin.id}`;
-    navigator.clipboard.writeText(pinUrl)
-      .then(() => toast({ title: "Link Copied!", description: "Pin URL copied to clipboard." }))
-      .catch(() => toast({ variant: "destructive", title: "Copy Failed", description: "Could not copy link." }));
+    navigator.clipboard
+      .writeText(pinUrl)
+      .then(() =>
+        toast({
+          title: "Link Copied!",
+          description: "Pin URL copied to clipboard.",
+        }),
+      )
+      .catch(() =>
+        toast({
+          variant: "destructive",
+          title: "Copy Failed",
+          description: "Could not copy link.",
+        }),
+      );
   };
 
   // Reset loading state when modal opens with a new pin or reopens
   useState(() => {
     if (isOpen) setIsImageLoading(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, pin?.id]);
-
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogOverlay className="bg-black/80 backdrop-blur-sm fixed inset-0 z-[999]" />
-      <DialogContent 
+      <DialogContent
         className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-4 outline-none border-none bg-transparent shadow-none w-full h-full"
         onInteractOutside={(e) => {
-          if (e.target === e.currentTarget) { 
+          if (e.target === e.currentTarget) {
             onClose();
           }
         }}
@@ -78,9 +102,12 @@ export default function ImageZoomModal({ pin, isOpen, onClose }: ImageZoomModalP
         aria-describedby="image-zoom-description"
       >
         <div className="relative bg-card rounded-xl shadow-modal w-auto h-auto max-w-[95vw] max-h-[90vh] flex flex-col animate-scale-in">
-           <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 via-black/20 to-transparent rounded-t-xl">
-            <p id="image-zoom-title" className="text-sm sm:text-base font-semibold text-white truncate max-w-[calc(100%-140px)]">
-              {pin.title || 'Image Preview'}
+          <div className="absolute top-0 left-0 right-0 p-3 sm:p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 via-black/20 to-transparent rounded-t-xl">
+            <p
+              id="image-zoom-title"
+              className="text-sm sm:text-base font-semibold text-white truncate max-w-[calc(100%-140px)]"
+            >
+              {pin.title || "Image Preview"}
             </p>
             <div className="flex items-center gap-1">
               <Button
@@ -92,7 +119,7 @@ export default function ImageZoomModal({ pin, isOpen, onClose }: ImageZoomModalP
               >
                 <Download className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-               <Button
+              <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleCopyLink}
@@ -118,22 +145,22 @@ export default function ImageZoomModal({ pin, isOpen, onClose }: ImageZoomModalP
             )}
             <Image
               src={pin.image_url}
-              alt={pin.title || 'Zoomed pin image'}
-              width={imageWidth} 
+              alt={pin.title || "Zoomed pin image"}
+              width={imageWidth}
               height={imageHeight}
               className={cn(
                 "object-contain max-h-[calc(90vh-80px)] w-auto h-auto rounded-lg shadow-2xl transition-opacity duration-300",
-                isImageLoading ? "opacity-0" : "opacity-100"
+                isImageLoading ? "opacity-0" : "opacity-100",
               )}
               data-ai-hint={pin.title || "zoomed image detail"}
-              priority 
+              priority
               onLoad={() => setIsImageLoading(false)}
               onError={() => setIsImageLoading(false)} // Handle error, maybe show placeholder icon
               sizes="90vw"
             />
           </div>
           <div id="image-zoom-description" className="sr-only">
-            Enlarged view of: {pin.title || 'Image'}. Press escape to close.
+            Enlarged view of: {pin.title || "Image"}. Press escape to close.
           </div>
         </div>
       </DialogContent>

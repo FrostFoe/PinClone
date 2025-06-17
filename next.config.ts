@@ -1,5 +1,4 @@
-
-import type {NextConfig} from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typescript: {
@@ -11,10 +10,10 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
+        protocol: "https",
+        hostname: "placehold.co",
+        port: "",
+        pathname: "/**",
       },
       // Add your Supabase project's image hostname here if using Supabase Storage
       // Example: yourprojectid.supabase.co
@@ -23,10 +22,12 @@ const nextConfig: NextConfig = {
       // This is a common pattern, but adjust if your URL structure is different.
       process.env.NEXT_PUBLIC_SUPABASE_URL
         ? {
-            protocol: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).protocol.slice(0, -1) as 'http' | 'https',
+            protocol: new URL(
+              process.env.NEXT_PUBLIC_SUPABASE_URL,
+            ).protocol.slice(0, -1) as "http" | "https",
             hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname,
-            port: '',
-            pathname: '/storage/v1/object/public/**',
+            port: "",
+            pathname: "/storage/v1/object/public/**",
           }
         : undefined,
     ].filter(Boolean) as any, // Filter out undefined if env var is not set
