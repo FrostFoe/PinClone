@@ -1,7 +1,8 @@
 // ==========================================================================================
 // !! CRITICAL SUPABASE SETUP FOR PIN CREATION !!
 // ==========================================================================================
-// For pin creation and image uploads to work, you MUST create a Supabase Storage bucket named 'pins'.
+// TO FIX "Bucket not found" ERRORS:
+// You MUST create a Supabase Storage bucket named 'pins'.
 //
 // Steps:
 // 1. Go to your Supabase Project Dashboard.
@@ -13,7 +14,8 @@
 //     allow everyone to select/read). For this app, public is simpler.
 // 6. Click 'Create bucket'.
 //
-// If this bucket is not created, image uploads will fail with a "Bucket not found" error.
+// If this bucket is not created, image uploads will fail with a "Bucket not found" error,
+// as shown in the toast message.
 // ==========================================================================================
 "use client";
 
@@ -176,7 +178,7 @@ export default function CreatePinPage() {
 
     try {
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("pins") // Critical: Ensure this 'pins' bucket exists in Supabase Storage
+        .from("pins") // Critical: This bucket MUST exist in Supabase Storage. See comment at top of file.
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,

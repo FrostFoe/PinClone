@@ -1,7 +1,8 @@
 // ==========================================================================================
 // !! CRITICAL SUPABASE SETUP FOR PROFILE AVATARS !!
 // ==========================================================================================
-// For profile avatar uploads to work, you MUST create a Supabase Storage bucket named 'avatars'.
+// TO FIX "Bucket not found" ERRORS for avatar uploads:
+// You MUST create a Supabase Storage bucket named 'avatars'.
 //
 // Steps:
 // 1. Go to your Supabase Project Dashboard.
@@ -240,7 +241,7 @@ export default function ProfileSettingsPage() {
       const fileExt = avatarFile.name.split(".").pop();
       const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("avatars") // Critical: Ensure this 'avatars' bucket exists
+        .from("avatars") // Critical: This bucket MUST exist in Supabase Storage. See comment at top of file.
         .upload(fileName, avatarFile, {
           upsert: true,
           contentType: avatarFile.type,
@@ -269,6 +270,7 @@ export default function ProfileSettingsPage() {
       bio: userData.bio?.trim() || null,
       website: userData.website?.trim() || null,
       avatar_url: avatarPublicUrl || null,
+      updated_at: new Date().toISOString(), // Ensure updated_at is set
     };
 
     const { profile: updatedProfile, error: updateError } = await updateProfile(
