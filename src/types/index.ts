@@ -1,3 +1,4 @@
+
 export interface Profile {
   id: string;
   username: string | null; // Should become non-null after initial setup via trigger
@@ -24,11 +25,11 @@ export interface Pin {
 // For Supabase responses that might include joined profile data
 export interface PinWithUploader
   extends Omit<Pin, "uploader" | "width" | "height"> {
-  width: number | null; // From DB
-  height: number | null; // From DB
+  width: number; // Changed from number | null - reflects DB NOT NULL
+  height: number; // Changed from number | null - reflects DB NOT NULL
   profiles: {
     username: string | null;
     avatar_url: string | null;
     full_name: string | null;
-  } | null; // Profile can be null if join fails or user deleted (though FK should prevent orphan pins)
+  } | null;
 }

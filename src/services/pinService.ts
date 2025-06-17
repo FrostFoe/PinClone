@@ -15,8 +15,8 @@ export async function mapSupabasePin(supabasePin: PinWithUploader): Promise<Pin>
     title: supabasePin.title,
     description: supabasePin.description,
     created_at: supabasePin.created_at,
-    width: supabasePin.width || 300, // Default width if null
-    height: supabasePin.height || 400, // Default height if null
+    width: supabasePin.width, // supabasePin.width is now number, fallback less critical
+    height: supabasePin.height, // supabasePin.height is now number, fallback less critical
     uploader: supabasePin.profiles
       ? {
           username: supabasePin.profiles.username || "unknown_user",
@@ -157,7 +157,6 @@ export async function createPin(
   if (!pinData.image_url) {
     return { pin: null, error: "Image URL is required." };
   }
-  // Ensure width and height are provided as per application logic
   if (typeof pinData.width !== 'number' || typeof pinData.height !== 'number') {
     return {
       pin: null,
@@ -168,7 +167,6 @@ export async function createPin(
   const newPin: TablesInsert<"pins"> = {
     ...pinData,
     user_id: user.id,
-    // created_at will be set by default by the database
   };
 
   try {
@@ -193,12 +191,8 @@ export async function createPin(
     }
 
     if (insertedPinData) {
-      // Type assertion as PinWithUploader after successful insert and select
       let createdPin = insertedPinData as PinWithUploader;
 
-      // If profile info wasn't joined (e.g., profile created just after pin insert)
-      // or if the profile is still missing, we attempt one more fetch.
-      // This is a fallback and ideally, the profile should exist due to the signup trigger.
       if (!createdPin.profiles) {
         console.warn(`Profile data for user ${user.id} not immediately available after pin creation. Attempting fallback fetch.`);
         const { data: profileData, error: profileFetchError } = await supabase

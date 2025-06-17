@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -13,43 +14,43 @@ export type Database = {
         Row: {
           created_at: string;
           description: string | null;
-          height: number | null; // Keep as nullable if DB allows, but client type Pin expects number
+          height: number; // Changed from number | null
           id: string;
           image_url: string;
           title: string | null;
-          user_id: string; // Should be NOT NULL
-          width: number | null; // Keep as nullable if DB allows
+          user_id: string;
+          width: number; // Changed from number | null
         };
         Insert: {
           created_at?: string;
           description?: string | null;
-          height: number; // Make non-nullable for insert if required by client logic
+          height: number;
           id?: string;
           image_url: string;
           title?: string | null;
-          user_id: string; // Make non-nullable
-          width: number; // Make non-nullable for insert
+          user_id: string;
+          width: number;
         };
         Update: {
           created_at?: string;
           description?: string | null;
-          height?: number | null;
+          height?: number; // Changed from number | null
           id?: string;
           image_url?: string;
           title?: string | null;
           user_id?: string;
-          width?: number | null;
+          width?: number; // Changed from number | null
         };
         Relationships: [
           {
             foreignKeyName: "pins_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "users"; // Supabase auth users table
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "pins_user_id_fkey_profiles"; // Ensure a distinct name if also joining to profiles
+            foreignKeyName: "pins_user_id_fkey_profiles";
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
@@ -63,8 +64,8 @@ export type Database = {
           bio: string | null;
           created_at: string;
           full_name: string | null;
-          id: string; // FK to auth.users.id
-          username: string; // Make non-nullable based on schema description
+          id: string;
+          username: string;
           website: string | null;
         };
         Insert: {
@@ -73,7 +74,7 @@ export type Database = {
           created_at?: string;
           full_name?: string | null;
           id: string;
-          username: string; // Make non-nullable
+          username: string;
           website?: string | null;
         };
         Update: {
@@ -82,7 +83,7 @@ export type Database = {
           created_at?: string;
           full_name?: string | null;
           id?: string;
-          username?: string; // Make non-nullable if updating
+          username?: string;
           website?: string | null;
         };
         Relationships: [
@@ -101,7 +102,6 @@ export type Database = {
     };
     Functions: {
       handle_new_user?: {
-        // If you have this function in your DB
         Args: Record<PropertyKey, never>;
         Returns: Record<PropertyKey, never>;
       };
