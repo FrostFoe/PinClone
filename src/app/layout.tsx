@@ -1,6 +1,9 @@
+
 import type { Metadata, Viewport } from "next";
+import { Suspense } from 'react';
 import AppClientLayout from "./app-client-layout";
 import "./globals.css";
+import { Loader2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: "Pinclone | Your Visual Discovery Engine",
@@ -32,6 +35,14 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+function LayoutSuspenseFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+    </div>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -56,7 +67,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AppClientLayout>{children}</AppClientLayout>
+        <Suspense fallback={<LayoutSuspenseFallback />}>
+          <AppClientLayout>{children}</AppClientLayout>
+        </Suspense>
       </body>
     </html>
   );

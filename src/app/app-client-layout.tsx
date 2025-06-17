@@ -69,7 +69,7 @@ export default function AppClientLayout({
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       const newCurrentUser = session?.user ?? null;
       setCurrentUser(newCurrentUser);
-      setIsLoadingAuth(false); // Auth state determined
+      setIsLoadingAuth(false); // Auth state determined by listener
 
       // Refresh server components that might depend on auth state
       // This is important after login/logout for UI to update correctly
@@ -79,10 +79,17 @@ export default function AppClientLayout({
     });
 
     // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user ?? null);
-      setIsLoadingAuth(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setCurrentUser(session?.user ?? null);
+      })
+      .catch((error) => {
+        console.error("Error getting initial session in AppClientLayout:", error);
+        setCurrentUser(null); // Ensure currentUser is null if session fetch fails
+      })
+      .finally(() => {
+        setIsLoadingAuth(false); // Always set loading to false
+      });
 
     return () => {
       authListener.unsubscribe();
