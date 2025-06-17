@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -7,7 +8,8 @@ import { X, Download, Link2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "./ui/skeleton";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // useEffect might be needed if we reset loading state based on isOpen prop
+import { cn } from "@/lib/utils"; // Added missing import for cn
 
 interface ImageZoomModalProps {
   pin: Pin | null;
@@ -22,6 +24,13 @@ export default function ImageZoomModal({
 }: ImageZoomModalProps) {
   const { toast } = useToast();
   const [isImageLoading, setIsImageLoading] = useState(true);
+
+  // Reset loading state when modal becomes visible or pin changes
+  useEffect(() => {
+    if (isOpen) {
+      setIsImageLoading(true);
+    }
+  }, [isOpen, pin?.id]); // Depend on pin.id as well in case the same modal instance is reused for different pins
 
   if (!pin) return null;
 
@@ -43,11 +52,10 @@ export default function ImageZoomModal({
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      // Try to derive a filename, ensuring it's valid
       const titleSanitized =
         pin.title?.replace(/[^a-z0-9]/gi, "_").toLowerCase() || "pin_image";
       const fileExtension =
-        pin.image_url.split(".").pop()?.split("?")[0] || "png"; // Basic extension detection
+        pin.image_url.split(".").pop()?.split("?")[0] || "png";
       link.download = `${titleSanitized}.${fileExtension}`;
       document.body.appendChild(link);
       link.click();
@@ -81,12 +89,6 @@ export default function ImageZoomModal({
         }),
       );
   };
-
-  // Reset loading state when modal opens with a new pin or reopens
-  useState(() => {
-    if (isOpen) setIsImageLoading(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, pin?.id]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -155,7 +157,10 @@ export default function ImageZoomModal({
               data-ai-hint={pin.title || "zoomed image detail"}
               priority
               onLoad={() => setIsImageLoading(false)}
-              onError={() => setIsImageLoading(false)} // Handle error, maybe show placeholder icon
+              onError={() => {
+                setIsImageLoading(false);
+                toast({variant: "destructive", title: "Image Error", description: "Could not load the zoomed image."})
+              }}
               sizes="90vw"
             />
           </div>
