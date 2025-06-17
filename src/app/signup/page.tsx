@@ -9,8 +9,8 @@ import PincloneLogo from "@/components/pinclone-logo";
 import { User, Mail, Lock, FileSignature, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { signUpWithEmail, signInWithOAuthBrowser } from "@/services/authService";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { signUpWithEmail } from "@/services/authService"; // Server Action
+import { signInWithOAuthBrowser } from "@/lib/auth/client"; // Client-side function
 
 // Simple SVG for GitHub icon (reuse from login)
 const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -22,7 +22,6 @@ const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = createSupabaseBrowserClient(); // For onAuthStateChange check if needed here
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -34,10 +33,10 @@ export default function SignupPage() {
     event.preventDefault();
     setIsLoading(true);
 
-    const formData = new FormData();
-    formData.append('email', email);
-    formData.append('password', password);
-    formData.append('fullName', fullName);
+    const formData = new FormData(event.currentTarget);
+    // formData.append('email', email); // No need if using new FormData(event.currentTarget)
+    // formData.append('password', password);
+    // formData.append('fullName', fullName);
 
     const { user, session, error } = await signUpWithEmail(formData);
 
@@ -61,7 +60,7 @@ export default function SignupPage() {
         description: "Welcome! You're being logged in...",
       });
       // onAuthStateChange in AppClientLayout will handle redirect to '/'
-      router.refresh();
+      // router.refresh(); // For server components relying on this. AppClientLayout also does this.
     }
   };
 
@@ -107,7 +106,7 @@ export default function SignupPage() {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="fullName"
-                  name="fullName"
+                  name="fullName" // Ensure name matches FormData key
                   type="text"
                   autoComplete="name"
                   required
@@ -128,7 +127,7 @@ export default function SignupPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="email"
-                  name="email"
+                  name="email" // Ensure name matches FormData key
                   type="email"
                   autoComplete="email"
                   required
@@ -149,7 +148,7 @@ export default function SignupPage() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="password"
-                  name="password"
+                  name="password" // Ensure name matches FormData key
                   type="password"
                   autoComplete="new-password"
                   required
@@ -167,7 +166,7 @@ export default function SignupPage() {
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 focus-ring"
-                disabled={isLoading || isGitHubLoading}
+                disabled={isLoading || isGitHubLoading || !email || !password || !fullName}
               >
                 {isLoading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -193,6 +192,7 @@ export default function SignupPage() {
           <div>
             <Button
               variant="outline"
+              type="button"
               className="w-full h-12 text-base font-semibold rounded-full focus-ring"
               onClick={handleGitHubSignup}
               disabled={isLoading || isGitHubLoading}

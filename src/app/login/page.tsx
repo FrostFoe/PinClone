@@ -9,7 +9,8 @@ import PincloneLogo from "@/components/pinclone-logo";
 import { Mail, Lock, LogIn as LogInIcon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
-import { signInWithPassword, signInWithOAuthBrowser } from "@/services/authService";
+import { signInWithPassword } from "@/services/authService"; // Server Action
+import { signInWithOAuthBrowser } from "@/lib/auth/client"; // Client-side function
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 // Simple SVG for GitHub icon
@@ -40,7 +41,7 @@ export default function LoginPage() {
         title: error.replace(/-/g, ' '),
         description: message ? message.replace(/-/g, ' ') : "An unexpected error occurred.",
       });
-      // Clean up URL params
+      // Clean up URL params by replacing the current entry in history
       router.replace('/login', { scroll: false });
     }
   }, [searchParams, toast, router]);
@@ -49,9 +50,9 @@ export default function LoginPage() {
     event.preventDefault();
     setIsLoading(true);
 
-    const formData = new FormData();
-    formData.append('email', email);
-    formData.append('password', password);
+    const formData = new FormData(event.currentTarget);
+    // formData.append('email', email); // No need to append manually if using new FormData(event.currentTarget)
+    // formData.append('password', password);
 
     const { session, error } = await signInWithPassword(formData);
 
@@ -68,7 +69,8 @@ export default function LoginPage() {
         description: "Welcome back! You're being redirected...",
       });
       // onAuthStateChange in AppClientLayout will handle redirect to '/'
-      router.refresh(); // Refresh server components
+      // router.refresh() might be needed if server components depend on auth state directly on this page
+      // but AppClientLayout's refresh on SIGNED_IN should cover most cases.
     }
   };
 
@@ -163,7 +165,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 focus-ring"
-                disabled={isLoading || isGitHubLoading}
+                disabled={isLoading || isGitHubLoading || !email || !password}
               >
                 {isLoading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -189,6 +191,7 @@ export default function LoginPage() {
           <div>
             <Button
               variant="outline"
+              type="button"
               className="w-full h-12 text-base font-semibold rounded-full focus-ring"
               onClick={handleGitHubLogin}
               disabled={isLoading || isGitHubLoading}

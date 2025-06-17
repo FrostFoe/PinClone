@@ -8,11 +8,11 @@ import {
   MessageCircle,
   Settings,
   LogOut,
-  PlusSquare,
-  ExternalLink,
-  LifeBuoy,
-  FileText,
-  ShieldCheck,
+  // PlusSquare, // Can be removed if Create button is always visible or handled differently
+  // ExternalLink,
+  // LifeBuoy,
+  // FileText,
+  // ShieldCheck,
   GripVertical,
   Loader2,
 } from "lucide-react";
@@ -35,13 +35,13 @@ import { useEffect, useState } from "react";
 import type { Profile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import PincloneLogo from "./pinclone-logo";
-import { signOutClient } from "@/services/authService";
+import { signOutClient } from "@/lib/auth/client"; // Client-side function
 
 export default function AppHeader() {
   const { isMobile, toggleSidebar } = useSidebar();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParamsHook = useSearchParams(); // Renamed to avoid conflict with internal 'searchParams'
   const supabase = createSupabaseBrowserClient();
   const { toast } = useToast();
 
@@ -50,26 +50,33 @@ export default function AppHeader() {
   );
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [searchQuery, setSearchQuery] = useState(searchParamsHook.get("q") || "");
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    setSearchQuery(searchParams.get("q") || "");
-  }, [searchParams]);
+    setSearchQuery(searchParamsHook.get("q") || "");
+  }, [searchParamsHook]);
 
   useEffect(() => {
     const fetchUserAndProfile = async (userId: string, userEmail: string | undefined) => {
       setCurrentUserEmail(userEmail || null);
-      const { data: profileData, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+      try {
+        const { data: profileData, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .single();
 
-      if (error && error.code !== "PGRST116") { // PGRST116: No rows found, common for new users
-        toast({ variant: 'destructive', title: 'Error fetching profile', description: error.message });
+        if (error && error.code !== "PGRST116") { // PGRST116: No rows found, common for new users
+          console.error('Error fetching profile in AppHeader:', error);
+          // Toasting here might be too noisy on every load if profile is missing temporarily
+          // toast({ variant: 'destructive', title: 'Error fetching profile', description: error.message });
+        }
+        setCurrentUserProfile(profileData as Profile | null);
+      } catch (e) {
+        console.error('Exception fetching profile in AppHeader:', e);
+        // toast({ variant: 'destructive', title: 'Error fetching profile', description: 'An unexpected error occurred.'});
       }
-      setCurrentUserProfile(profileData as Profile | null);
     };
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -101,7 +108,7 @@ export default function AppHeader() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, toast, router]); // Added router to dep array if redirects occur from here
+  }, [supabase, toast]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -114,14 +121,13 @@ export default function AppHeader() {
         description: error.message,
       });
     } else {
-      // setCurrentUserProfile(null); // onAuthStateChange will handle this
-      // setCurrentUserEmail(null);
-      // router.push("/login"); // onAuthStateChange in AppClientLayout handles redirect
-      // router.refresh(); 
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
+      // AppClientLayout's onAuthStateChange will handle redirect and state update.
+      // router.push('/login'); // This might conflict if AppClientLayout also tries to redirect
+      // router.refresh(); // Let AppClientLayout handle refresh on SIGNED_OUT event
     }
   };
 
@@ -130,16 +136,21 @@ export default function AppHeader() {
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     } else {
-      router.push("/search");
+      // If search is cleared, navigate to search base page or clear results client-side
+      if (pathname === "/search") {
+        router.push("/search"); // Clears query param from URL if already on search page
+      } else {
+        router.push("/search"); // Navigates to search page if search is cleared from another page
+      }
     }
   };
 
   const avatarFallbackText =
     currentUserProfile?.full_name?.[0]?.toUpperCase() ||
     currentUserProfile?.username?.[0]?.toUpperCase() ||
+    currentUserEmail?.[0]?.toUpperCase() || // Fallback to email initial if profile not loaded yet
     "P";
   const isHomePage = pathname === "/";
-  const showCreateButton = currentUserProfile && !isHomePage; // Keep or adjust this logic as needed
 
   return (
     <header className="sticky top-0 z-40 w-full bg-background/90 backdrop-blur-md border-b border-border/80 shadow-sm">
@@ -173,10 +184,9 @@ export default function AppHeader() {
           >
             Home
           </Button>
-          {/* Create button on Navbar - could be redundant if in sidebar */}
-           {currentUserProfile && (
+           {currentUserProfile && ( // Show Create button if user is logged in
             <Button
-              variant="ghost"
+              variant="ghost" // Can be 'default' or other variant if more prominent
               size="default"
               className="rounded-full px-4 font-medium text-base text-foreground hover:bg-secondary hidden md:inline-flex"
               onClick={() => router.push("/create")}
@@ -191,7 +201,7 @@ export default function AppHeader() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
             <Input
               type="search"
-              placeholder="Search"
+              placeholder="Search pins, users..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-12 pl-12 pr-4 rounded-full bg-secondary border-transparent focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary placeholder:text-muted-foreground/80 text-base"
@@ -224,7 +234,7 @@ export default function AppHeader() {
 
           {isLoadingUser ? (
             <Skeleton className="h-10 w-10 rounded-full" />
-          ) : currentUserProfile ? (
+          ) : currentUserProfile || currentUserEmail ? ( // Check for email as well, as profile might lag
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -234,10 +244,10 @@ export default function AppHeader() {
                 >
                   <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
                     <AvatarImage
-                      src={currentUserProfile.avatar_url || undefined}
+                      src={currentUserProfile?.avatar_url || undefined}
                       alt={
-                        currentUserProfile.full_name ||
-                        currentUserProfile.username ||
+                        currentUserProfile?.full_name ||
+                        currentUserProfile?.username ||
                         "User"
                       }
                       data-ai-hint="profile avatar"
@@ -262,10 +272,10 @@ export default function AppHeader() {
                     <div className="flex items-center gap-3 p-2.5 rounded-md hover:bg-secondary/50 w-full">
                       <Avatar className="h-12 w-12">
                         <AvatarImage
-                          src={currentUserProfile.avatar_url || undefined}
+                          src={currentUserProfile?.avatar_url || undefined}
                           alt={
-                            currentUserProfile.full_name ||
-                            currentUserProfile.username ||
+                            currentUserProfile?.full_name ||
+                            currentUserProfile?.username ||
                             "User"
                           }
                           data-ai-hint="profile avatar large"
@@ -276,10 +286,10 @@ export default function AppHeader() {
                       </Avatar>
                       <div className="overflow-hidden flex-1">
                         <p className="text-sm font-semibold truncate text-foreground">
-                          {currentUserProfile.full_name ||
-                            currentUserProfile.username}
+                          {currentUserProfile?.full_name ||
+                            currentUserProfile?.username || "My Profile"}
                         </p>
-                        {currentUserProfile.username && (
+                        {currentUserProfile?.username && (
                           <p className="text-xs text-muted-foreground truncate">
                             @{currentUserProfile.username}
                           </p>
@@ -304,49 +314,6 @@ export default function AppHeader() {
                       Settings
                     </DropdownMenuItem>
                   </Link>
-                  {/* Add account can be a future feature
-                  <DropdownMenuItem
-                    className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed"
-                    disabled
-                  >
-                    <PlusSquare className="mr-2.5 h-4 w-4 text-muted-foreground" />{" "}
-                    Add account
-                  </DropdownMenuItem> */}
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator className="my-1.5" />
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="text-xs text-muted-foreground px-3 pt-1 pb-1">
-                    More options
-                  </DropdownMenuLabel>
-                   {/* These can be implemented or linked later
-                  <DropdownMenuItem
-                    className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed"
-                    disabled
-                  >
-                    <ExternalLink className="mr-2.5 h-4 w-4 text-muted-foreground" />{" "}
-                    Tune your home feed
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed"
-                    disabled
-                  >
-                    <LifeBuoy className="mr-2.5 h-4 w-4 text-muted-foreground" />{" "}
-                    Get help
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed"
-                    disabled
-                  >
-                    <FileText className="mr-2.5 h-4 w-4 text-muted-foreground" />{" "}
-                    See terms of service
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed"
-                    disabled
-                  >
-                    <ShieldCheck className="mr-2.5 h-4 w-4 text-muted-foreground" />{" "}
-                    See privacy policy
-                  </DropdownMenuItem> */}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator className="my-1.5" />
                 <DropdownMenuItem
