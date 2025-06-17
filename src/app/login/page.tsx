@@ -12,7 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { signInWithPassword } from "@/services/authService"; 
 import { signInWithOAuthBrowser } from "@/lib/auth/client"; 
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+// import { createSupabaseBrowserClient } from "@/lib/supabase/client"; // No longer directly used for auth state check here
+
+// This tells Next.js to render this page dynamically at request time.
+export const dynamic = 'force-dynamic';
 
 const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
@@ -23,28 +26,16 @@ const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams(); // Used for 'next' param and error display
   const { toast } = useToast();
-  const supabase = createSupabaseBrowserClient(); // Not strictly needed here if AppClientLayout handles state
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGitHubLoading, setIsGitHubLoading] = useState(false);
 
-  // This effect to display errors from URL is now handled globally in AppClientLayout.tsx
-  // useEffect(() => {
-  //   const error = searchParams.get('error');
-  //   const message = searchParams.get('message');
-  //   if (error) {
-  //     toast({
-  //       variant: "destructive",
-  //       title: error.replace(/-/g, ' '),
-  //       description: message ? message.replace(/-/g, ' ') : "An unexpected error occurred.",
-  //     });
-  //     router.replace('/login', { scroll: false });
-  //   }
-  // }, [searchParams, toast, router]);
+  // Error/message display from URL is now primarily handled by AppClientLayout
+  // but login page might still want to react to login-specific errors not handled globally.
 
   const handleEmailLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -65,11 +56,9 @@ export default function LoginPage() {
         title: "Login Successful!",
         description: "Welcome back! Redirecting...",
       });
-      // AppClientLayout's onAuthStateChange will handle redirect
-      // router.refresh() in AppClientLayout will also handle re-rendering server components
-      // No explicit router.push needed here.
+      // AppClientLayout's onAuthStateChange will handle redirect based on new session
+      // router.refresh() might be called by AppClientLayout
     } else {
-       // Should not happen if Supabase client call is correct and no error
        toast({
         variant: "destructive",
         title: "Login Issue",
@@ -91,7 +80,6 @@ export default function LoginPage() {
       setIsGitHubLoading(false);
     }
     // On success, Supabase redirects to /auth/callback.
-    // setIsGitHubLoading(false) might not be reached on success.
   };
 
 
