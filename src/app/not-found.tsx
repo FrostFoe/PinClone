@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import PincloneLogo from "@/components/pinclone-logo";
 import { Compass, AlertTriangle } from "lucide-react";
 
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
 export default function NotFound() {
   return (
     // Wrap the main content with Suspense

@@ -14,55 +14,67 @@ export async function middleware(request: NextRequest) {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error(
-      'Middleware Error: Supabase URL or Anon Key is missing from environment variables.',
-      'NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'Set' : 'MISSING',
-      'NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'MISSING'
+      'CRITICAL MIDDLEWARE ERROR: Supabase URL or Anon Key is missing from environment variables. ' +
+      'Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your .env.local file (and for your deployment). ' +
+      'You MUST restart your Next.js development server after adding/changing .env.local.'
     );
-    // Optionally, return a more user-friendly error page or a simple 500
-    // For now, logging and allowing Next.js to handle it (might show a generic error)
-    // Or, to be more explicit for debugging:
     return new NextResponse(
       'Server configuration error: Supabase environment variables are missing. Please check server logs.',
       { status: 500 }
     );
   }
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+  let supabase;
+  try {
+    supabase = createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            // If the cookie is set, update the request cookies and response cookies
+            request.cookies.set({ name, value, ...options });
+            response = NextResponse.next({ // Re-create response to apply new cookies
+              request: {
+                headers: request.headers,
+              },
+            });
+            response.cookies.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            // If the cookie is removed, update the request cookies and response cookies
+            request.cookies.set({ name, value: '', ...options });
+            response = NextResponse.next({ // Re-create response to apply new cookies
+              request: {
+                headers: request.headers,
+              },
+            });
+            response.cookies.set({ name, value: '', ...options });
+          },
         },
-        set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is set, update the request cookies and response cookies
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the request cookies and response cookies
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({ name, value: '', ...options });
-        },
-      },
-    }
-  );
+      }
+    );
+  } catch (e: any) {
+    console.error('CRITICAL MIDDLEWARE ERROR: Failed to create Supabase client.', e.message, e.stack);
+    return new NextResponse(
+      'Server error: Could not initialize authentication service. Please check server logs.',
+      { status: 500 }
+    );
+  }
 
-  // Refresh session if expired - required for Server Components
-  // https://supabase.com/docs/guides/auth/auth-helpers/nextjs#managing-session-with-middleware
-  // This will also ensure the session is available for Server Components.
-  await supabase.auth.getSession();
+  try {
+    // Refresh session if expired - required for Server Components
+    // https://supabase.com/docs/guides/auth/auth-helpers/nextjs#managing-session-with-middleware
+    // This will also ensure the session is available for Server Components.
+    await supabase.auth.getSession();
+  } catch (e: any) {
+     console.error('CRITICAL MIDDLEWARE ERROR: Error during supabase.auth.getSession().', e.message, e.stack);
+    // It's generally better to let the request proceed and let pages handle auth state,
+    // rather than returning a 500 here, unless getSession itself is critical for all paths.
+  }
 
   return response;
 }
