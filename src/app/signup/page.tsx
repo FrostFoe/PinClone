@@ -1,7 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,10 +10,9 @@ import PincloneLogo from "@/components/pinclone-logo";
 import { User, Mail, Lock, FileSignature, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { signUpWithEmail } from "@/services/authService"; // Server Action
-import { signInWithOAuthBrowser } from "@/lib/auth/client"; // Client-side function
+import { signUpWithEmail } from "@/services/authService"; 
+import { signInWithOAuthBrowser } from "@/lib/auth/client"; 
 
-// Simple SVG for GitHub icon (reuse from login)
 const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
     <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
@@ -21,6 +21,7 @@ const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams(); // For potential 'next' param
   const { toast } = useToast();
 
   const [fullName, setFullName] = useState("");
@@ -34,10 +35,6 @@ export default function SignupPage() {
     setIsLoading(true);
 
     const formData = new FormData(event.currentTarget);
-    // formData.append('email', email); // No need if using new FormData(event.currentTarget)
-    // formData.append('password', password);
-    // formData.append('fullName', fullName);
-
     const { user, session, error } = await signUpWithEmail(formData);
 
     setIsLoading(false);
@@ -48,25 +45,33 @@ export default function SignupPage() {
         title: "Signup Failed",
         description: error.message || "Could not create your account. Please try again.",
       });
-    } else if (user && !session) { // Email confirmation required
+    } else if (user && !session) { 
+      // Email confirmation required
       toast({
         title: "Signup Almost Complete!",
         description: "Please check your email to confirm your account.",
       });
-      router.push("/login?message=check-email-for-confirmation");
-    } else if (user && session) { // Auto-confirmed or email confirmation disabled
+      router.push("/login?message=confirmation_pending"); // Redirect to login with a message
+    } else if (user && session) { 
+      // Auto-confirmed or email confirmation disabled
        toast({
         title: "Signup Successful!",
         description: "Welcome! You're being logged in...",
       });
-      // onAuthStateChange in AppClientLayout will handle redirect to '/'
-      // router.refresh(); // For server components relying on this. AppClientLayout also does this.
+      // AppClientLayout's onAuthStateChange will handle redirect to '/' or 'next' param
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Signup Issue",
+        description: "An unexpected issue occurred during signup. Please try again.",
+      });
     }
   };
 
   const handleGitHubSignup = async () => {
     setIsGitHubLoading(true);
-    const { error } = await signInWithOAuthBrowser('github');
+    const nextUrl = searchParams.get('next');
+    const { error } = await signInWithOAuthBrowser('github', nextUrl || undefined);
     if (error) {
       toast({
         variant: "destructive",
@@ -106,7 +111,7 @@ export default function SignupPage() {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="fullName"
-                  name="fullName" // Ensure name matches FormData key
+                  name="fullName" 
                   type="text"
                   autoComplete="name"
                   required
@@ -127,7 +132,7 @@ export default function SignupPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="email"
-                  name="email" // Ensure name matches FormData key
+                  name="email" 
                   type="email"
                   autoComplete="email"
                   required
@@ -148,7 +153,7 @@ export default function SignupPage() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="password"
-                  name="password" // Ensure name matches FormData key
+                  name="password" 
                   type="password"
                   autoComplete="new-password"
                   required

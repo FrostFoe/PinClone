@@ -1,8 +1,9 @@
+
 "use client";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Toaster } from "@/components/ui/toaster";
 import {
   SidebarProvider,
@@ -29,14 +30,20 @@ import {
   Loader2,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import AppHeader from "@/components/app-header";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { useToast } from "@/hooks/use-toast";
 
 const AUTH_ROUTES = ["/login", "/signup"];
-const PROTECTED_ROUTES_EXCEPTIONS = ["/", "/search"]; // Publicly accessible, even if not logged in
+const PROTECTED_ROUTES = ["/create", "/profile", "/settings/profile"];
+const PUBLIC_ONLY_ROUTES = ["/login", "/signup"]; // Routes only accessible when logged out
+
+// Routes that are public but might show different content if logged in (don't force redirect if unauth)
+const PUBLIC_ROUTES_WITH_AUTH_CONTENT = ["/", "/search"];
 const PIN_DETAIL_REGEX = /^\/pin\/[a-zA-Z0-9-]+$/;
 const USER_PROFILE_REGEX = /^\/u\/[a-zA-Z0-9_.-]+$/;
+
 
 export default function AppClientLayout({
   children,
@@ -45,9 +52,16 @@ export default function AppClientLayout({
 }>) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createSupabaseBrowserClient();
   const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const { toast } = useToast();
+
+  const isAuthRoute = AUTH_ROUTES.includes(pathname);
+  const isProtectedRoute = PROTECTED_ROUTES.includes(pathname);
+  const isPublicOnlyRoute = PUBLIC_ONLY_ROUTES.includes(pathname);
+
 
   useEffect(() => {
     const {
@@ -57,62 +71,74 @@ export default function AppClientLayout({
       setCurrentUser(newCurrentUser);
       setIsLoadingAuth(false); // Auth state determined
 
-      if (event === "SIGNED_IN") {
-        if (AUTH_ROUTES.includes(pathname)) {
-          router.push("/"); // Redirect from login/signup to home
-        }
-        router.refresh(); // Refresh to potentially update server components
-      } else if (event === "SIGNED_OUT") {
-        if (AUTH_ROUTES.includes(pathname)) {
-           // Already on an auth page, do nothing or refresh
-           router.refresh();
-        } else if (
-          !PROTECTED_ROUTES_EXCEPTIONS.includes(pathname) &&
-          !PIN_DETAIL_REGEX.test(pathname) &&
-          !USER_PROFILE_REGEX.test(pathname)
-        ) {
-          router.push("/login"); // Redirect to login from protected areas
-        } else {
-          router.refresh(); // Refresh public pages that might show user-specific content
-        }
+      // Refresh server components that might depend on auth state
+      // This is important after login/logout for UI to update correctly
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+        router.refresh();
       }
     });
 
     // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
-      const initialUser = session?.user ?? null;
-      setCurrentUser(initialUser);
+      setCurrentUser(session?.user ?? null);
       setIsLoadingAuth(false);
-
-      if (!initialUser) {
-        if (
-          !AUTH_ROUTES.includes(pathname) &&
-          !PROTECTED_ROUTES_EXCEPTIONS.includes(pathname) &&
-          !PIN_DETAIL_REGEX.test(pathname) &&
-          !USER_PROFILE_REGEX.test(pathname)
-        ) {
-          router.push("/login");
-        }
-      } else {
-        // User is logged in
-        if (AUTH_ROUTES.includes(pathname)) {
-          router.push("/"); // If logged in and on auth page, redirect to home
-        }
-      }
     });
 
     return () => {
       authListener.unsubscribe();
     };
-  }, [supabase, pathname, router]);
+  }, [supabase, router]);
+
+
+  useEffect(() => {
+    if (isLoadingAuth) return; // Don't run redirect logic until auth state is known
+
+    if (currentUser) {
+      // User is logged in
+      if (isPublicOnlyRoute) {
+        // If logged in and on a public-only page (login/signup), redirect to home
+        const nextUrl = searchParams.get('next') || '/';
+        router.push(nextUrl);
+      }
+    } else {
+      // User is not logged in
+      if (isProtectedRoute) {
+        // If not logged in and on a protected route, redirect to login
+        // Preserve the intended destination via 'next' query param
+        const redirectTo = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
+        router.push(`/login?next=${encodeURIComponent(redirectTo)}`);
+      }
+    }
+  }, [currentUser, isLoadingAuth, pathname, router, searchParams, isProtectedRoute, isPublicOnlyRoute]);
+
+  // Display error/message toasts from URL params (e.g., after OAuth redirect)
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const message = searchParams.get('message');
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: decodeURIComponent(error).replace(/-/g, ' '),
+        description: message ? decodeURIComponent(message).replace(/-/g, ' ') : "An unexpected error occurred.",
+      });
+      // Clean up URL params by replacing the current entry in history
+      router.replace(pathname, { scroll: false });
+    } else if (message && message === 'confirmation_pending') {
+       toast({
+        title: "Signup Almost Complete!",
+        description: "Please check your email to confirm your account.",
+      });
+      router.replace(pathname, { scroll: false });
+    }
+  }, [searchParams, toast, router, pathname]);
 
 
   const navItems = [
     { href: "/", label: "Home", icon: Home, exact: true },
-    { href: "/search", label: "Explore", icon: Search }, // Explore is search users
+    { href: "/search", label: "Explore", icon: Search },
     { href: "/create", label: "Create", icon: PlusSquare, authRequired: true },
     {
-      href: "/profile", // This will be the current user's profile
+      href: "/profile",
       label: "Profile",
       icon: User,
       authRequired: true,
@@ -128,10 +154,9 @@ export default function AppClientLayout({
     },
   ];
 
-  const isAuthPage = AUTH_ROUTES.includes(pathname);
-  const isNotFoundPage = pathname === "/not-found"; // Assuming you have a /not-found route for custom 404
+  const isNotFoundPage = pathname === "/not-found";
 
-  if (isLoadingAuth) {
+  if (isLoadingAuth && !currentUser) { // Show full page loader only on initial load if no user yet
     return (
       <>
         <div className="flex items-center justify-center min-h-screen bg-background">
@@ -142,7 +167,20 @@ export default function AppClientLayout({
     );
   }
   
-  if (isAuthPage || isNotFoundPage) {
+  if (isAuthRoute || isNotFoundPage) {
+    // For login/signup/not-found pages, render children directly without main layout
+    // unless user is already logged in and on login/signup, in which case redirect handled above.
+    if (currentUser && isAuthRoute) {
+       // Still loading auth or redirecting, show loader
+        return (
+          <>
+            <div className="flex items-center justify-center min-h-screen bg-background">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+            <Toaster />
+          </>
+        );
+    }
     return (
       <>
         {children}
@@ -172,7 +210,9 @@ export default function AppClientLayout({
         <SidebarContent className="p-2">
           <SidebarMenu>
             {navItems.map((item) => {
+              // Auth check for item visibility
               if (item.authRequired && !currentUser) return null;
+              
               const isActive = item.exact
                 ? pathname === item.href
                 : pathname.startsWith(item.href);

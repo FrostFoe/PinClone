@@ -1,6 +1,6 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -18,11 +18,12 @@ export async function middleware(request: NextRequest) {
       'NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'Set' : 'MISSING',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'MISSING'
     );
-    // Return a more specific error response if env vars are missing.
-    // This helps in quickly identifying the root cause.
+    // Optionally, return a more user-friendly error page or a simple 500
+    // For now, logging and allowing Next.js to handle it (might show a generic error)
+    // Or, to be more explicit for debugging:
     return new NextResponse(
-      JSON.stringify({ error: 'Server configuration error: Supabase environment variables are missing. Please check server logs.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      'Server configuration error: Supabase environment variables are missing. Please check server logs.',
+      { status: 500 }
     );
   }
 
@@ -34,7 +35,8 @@ export async function middleware(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value;
         },
-        set(name: string, value: string, options) {
+        set(name: string, value: string, options: CookieOptions) {
+          // If the cookie is set, update the request cookies and response cookies
           request.cookies.set({ name, value, ...options });
           response = NextResponse.next({
             request: {
@@ -43,7 +45,8 @@ export async function middleware(request: NextRequest) {
           });
           response.cookies.set({ name, value, ...options });
         },
-        remove(name: string, options) {
+        remove(name: string, options: CookieOptions) {
+          // If the cookie is removed, update the request cookies and response cookies
           request.cookies.set({ name, value: '', ...options });
           response = NextResponse.next({
             request: {
@@ -58,6 +61,7 @@ export async function middleware(request: NextRequest) {
 
   // Refresh session if expired - required for Server Components
   // https://supabase.com/docs/guides/auth/auth-helpers/nextjs#managing-session-with-middleware
+  // This will also ensure the session is available for Server Components.
   await supabase.auth.getSession();
 
   return response;

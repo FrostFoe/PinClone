@@ -1,24 +1,37 @@
+
 'use client';
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { Provider } from '@supabase/supabase-js';
 
-export async function signInWithOAuthBrowser(provider: Provider) {
+export async function signInWithOAuthBrowser(provider: Provider, redirectToNext?: string) {
   const supabase = createSupabaseBrowserClient();
-  const origin = window.location.origin; // Safe to use window here due to 'use client'
+  const origin = window.location.origin; 
+
+  let redirectTo = `${origin}/auth/callback`;
+  if (redirectToNext) {
+    // Append the 'next' parameter to the Supabase redirectTo URL
+    // This 'next' parameter will be preserved by Supabase and passed back to our /auth/callback route
+    const callbackUrl = new URL(redirectTo);
+    callbackUrl.searchParams.set('next', redirectToNext);
+    redirectTo = callbackUrl.toString();
+  }
+
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${origin}/auth/callback`,
+      redirectTo: redirectTo,
+       // You can add scopes if needed, e.g., for GitHub:
+       // scopes: 'read:user user:email',
     },
   });
 
   if (error) {
-    return { data: null, error: { message: error.message, code: error.code } };
+    console.error('OAuth sign-in error:', error);
+    return { data: null, error: { message: error.message, code: error.code?.toString() } };
   }
-  // signInWithOAuth redirects, so a successful response here means the redirect is happening.
-  // The actual session is established in the /auth/callback route.
+  // signInWithOAuth redirects, so a successful response usually means the redirect is imminent.
   return { data, error: null };
 }
 
@@ -26,7 +39,8 @@ export async function signOutClient() {
   const supabase = createSupabaseBrowserClient();
   const { error } = await supabase.auth.signOut();
   if (error) {
-    return { error: { message: error.message, code: error.code } };
+    console.error('Sign out error:', error);
+    return { error: { message: error.message, code: error.code?.toString() } };
   }
   return { error: null };
 }
