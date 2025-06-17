@@ -1,280 +1,270 @@
--- ==========================================================================================
--- PINCLONE APP DATABASE SCHEMA
--- Version: 2.0
--- Description: Schema for a Pinterest-style application with users, profiles, and pins.
--- Includes tables, RLS policies for tables and storage, and helper functions/triggers.
+-- Pinclone Application Schema
+-- Version: Simplified (No boards, tags, comments, likes, follows)
 --
--- !! CRITICAL SETUP INSTRUCTIONS FOR SUPABASE STORAGE !!
--- !! THIS SQL DOES NOT CREATE STORAGE BUCKETS. YOU MUST DO IT MANUALLY. !!
+-- CRITICAL SUPABASE SETUP NOTES:
+-- 1. .env.local: Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.
+-- 2. SQL Editor: Run this ENTIRE script in your Supabase SQL Editor.
+-- 3. Storage Buckets:
+--    - Create a bucket named 'pins'. Make it PUBLIC. (Used in /create page)
+--    - Create a bucket named 'avatars'. Make it PUBLIC. (Used in /settings/profile page)
+--    RLS policies for these buckets are defined below but depend on RLS being active on storage.objects.
+-- 4. Refresh Schema Cache: In Supabase Dashboard -> API section -> Click "Reload schema".
+-- 5. Restart Next.js: After any .env or schema changes.
 --
--- 1. CREATE 'pins' BUCKET IN SUPABASE STORAGE:
---    - Go to Supabase Dashboard -> Storage -> Buckets.
---    - Click 'Create new bucket'.
---    - Bucket name: pins (all lowercase)
---    - Toggle 'Public bucket' to ON.
---    - Click 'Create bucket'.
---
--- 2. CREATE 'avatars' BUCKET IN SUPABASE STORAGE:
---    - Go to Supabase Dashboard -> Storage -> Buckets.
---    - Click 'Create new bucket'.
---    - Bucket name: avatars (all lowercase)
---    - Toggle 'Public bucket' to ON.
---    - Click 'Create bucket'.
---
--- The RLS policies for these buckets are included further down in this script.
--- After running this entire SQL script, REFRESH YOUR SUPABASE SCHEMA CACHE
--- (Supabase Dashboard -> API section -> "Reload schema").
--- ==========================================================================================
+-- IF YOU HAVE UPLOAD ISSUES (like 'new row violates row-level security policy'):
+--    - Double-check that the RLS policies for storage.objects from this file have been applied.
+--    - Consider MANUALLY ENABLING RLS on the 'storage.objects' table via the Supabase Dashboard (Database > Row Level Security)
+--      if you want the storage RLS policies defined below to be active. If RLS is not enabled on 'storage.objects',
+--      then access is controlled by the "Public bucket" toggle (for reads) and default Supabase behavior for authenticated users (for writes).
 
--- ⚠️ WARNING: This drops the entire 'public' schema and recreates it.
--- ALL EXISTING DATA IN THE 'public' SCHEMA WILL BE DELETED.
-DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA public;
+-- Drop schema if it exists to ensure a clean setup (optional, for fresh starts)
+-- WARNING: This deletes ALL data in the public schema. Use with caution.
+-- drop schema if exists public cascade;
+-- create schema public;
+-- grant usage on schema public to postgres, anon, authenticated, service_role;
+-- alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role;
+-- alter default privileges in schema public grant all on functions to postgres, anon, authenticated, service_role;
+-- alter default privileges in schema public grant all on sequences to postgres, anon, authenticated, service_role;
 
--- Grant usage on the new public schema to necessary roles
-GRANT USAGE ON SCHEMA public TO postgres;
-GRANT USAGE ON SCHEMA public TO anon;
-GRANT USAGE ON SCHEMA public TO authenticated;
-GRANT USAGE ON SCHEMA public TO service_role;
 
--- Optional: Revoke all from public for more security, then grant specifically.
--- REVOKE ALL ON SCHEMA public FROM public;
--- GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+-- Required Extensions
+create extension if not exists "uuid-ossp" with schema extensions; -- Preferred schema for extensions
+create extension if not exists "moddatetime" with schema extensions; -- For auto-updating updated_at
 
--- Enable UUID extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions; -- Ensure it's in a schema like 'extensions' or 'public' if 'extensions' doesn't exist
+-- Function to automatically update 'updated_at' column
+create or replace function public.update_updated_at_column()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
 
--- Enable moddatetime extension for automatic updated_at timestamps
-CREATE EXTENSION IF NOT EXISTS "moddatetime" WITH SCHEMA extensions;
-
--- ==========================================================================================
--- Profiles Table
--- Stores public user information, linked to Supabase Auth users.
--- ==========================================================================================
-CREATE TABLE public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    username TEXT NOT NULL UNIQUE CHECK (char_length(username) >= 3 AND username ~ '^[a-zA-Z0-9_.]+$'),
-    full_name TEXT,
-    avatar_url TEXT,
-    bio TEXT,
-    website TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+-- TABLE: profiles
+-- Stores public user profile information.
+create table public.profiles (
+  id uuid not null primary key, -- Links to auth.users.id
+  username text not null unique check (char_length(username) >= 3 and username ~ '^[a-zA-Z0-9_.]+$'),
+  full_name text,
+  bio text check (char_length(bio) <= 160),
+  avatar_url text,
+  website text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
 );
+comment on table public.profiles is 'Public user profiles, linked to Supabase Auth users.';
+comment on column public.profiles.id is 'User ID, references auth.users.id.';
+comment on column public.profiles.username is 'Unique public username for the user.';
 
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- Trigger for profiles updated_at
+create trigger handle_updated_at_profiles
+  before update on public.profiles
+  for each row
+  execute procedure public.update_updated_at_column();
 
-COMMENT ON TABLE public.profiles IS 'Stores public user profile information linked to Supabase auth users.';
-COMMENT ON COLUMN public.profiles.id IS 'User ID, references auth.users.id.';
-COMMENT ON COLUMN public.profiles.username IS 'Unique public username for the user.';
-COMMENT ON COLUMN public.profiles.full_name IS 'Full name of the user.';
-COMMENT ON COLUMN public.profiles.avatar_url IS 'URL to the user''s avatar image.';
-COMMENT ON COLUMN public.profiles.bio IS 'Short biography of the user.';
-COMMENT ON COLUMN public.profiles.website IS 'User''s personal or professional website URL.';
+-- RLS for profiles table
+alter table public.profiles enable row level security;
 
--- Indexes for profiles
-CREATE INDEX idx_profiles_username ON public.profiles(username);
-CREATE INDEX idx_profiles_full_name_gin ON public.profiles USING gin (to_tsvector('simple', full_name));
+drop policy if exists "Allow public read access to profiles" on public.profiles;
+create policy "Allow public read access to profiles"
+  on public.profiles for select
+  using (true);
 
--- RLS Policies for profiles
-CREATE POLICY "Profiles are viewable by everyone."
-    ON public.profiles FOR SELECT
-    USING (true);
+drop policy if exists "Allow individual user to insert their own profile" on public.profiles;
+create policy "Allow individual user to insert their own profile"
+  on public.profiles for insert
+  to authenticated
+  with check (auth.uid() = id);
 
-CREATE POLICY "Users can insert their own profile."
-    ON public.profiles FOR INSERT
-    WITH CHECK (auth.uid() = id);
+drop policy if exists "Allow individual user to update their own profile" on public.profiles;
+create policy "Allow individual user to update their own profile"
+  on public.profiles for update
+  to authenticated
+  using (auth.uid() = id)
+  with check (auth.uid() = id); -- Ensure they can only update their own
 
-CREATE POLICY "Users can update their own profile."
-    ON public.profiles FOR UPDATE
-    USING (auth.uid() = id)
-    WITH CHECK (auth.uid() = id);
+drop policy if exists "Allow individual user to delete their own profile" on public.profiles;
+create policy "Allow individual user to delete their own profile"
+  on public.profiles for delete
+  to authenticated
+  using (auth.uid() = id);
 
-CREATE POLICY "Users can delete their own profile."
-    ON public.profiles FOR DELETE
-    USING (auth.uid() = id);
 
--- ==========================================================================================
--- Pins Table
--- Stores information about pins created by users.
--- ==========================================================================================
-CREATE TABLE public.pins (
-    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    image_url TEXT NOT NULL,
-    title TEXT,
-    description TEXT,
-    width INTEGER NOT NULL,
-    height INTEGER NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+-- TABLE: pins
+-- Stores information about each pin.
+create table public.pins (
+  id uuid not null primary key default extensions.uuid_generate_v4(),
+  user_id uuid not null,
+  title text check (char_length(title) <= 100),
+  description text check (char_length(description) <= 500),
+  image_url text not null,
+  width integer not null check (width > 0),
+  height integer not null check (height > 0),
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint fk_user foreign key(user_id) references public.profiles(id) on delete cascade
 );
-
-ALTER TABLE public.pins ENABLE ROW LEVEL SECURITY;
-
-COMMENT ON TABLE public.pins IS 'Stores information about pins created by users.';
-COMMENT ON COLUMN public.pins.user_id IS 'The user who created the pin.';
-COMMENT ON COLUMN public.pins.image_url IS 'URL of the pin image (typically from Supabase Storage).';
-COMMENT ON COLUMN public.pins.width IS 'Original width of the image in pixels.';
-COMMENT ON COLUMN public.pins.height IS 'Original height of the image in pixels.';
+comment on table public.pins is 'Represents individual pins created by users.';
+comment on column public.pins.user_id is 'The user who created this pin.';
 
 -- Indexes for pins
-CREATE INDEX idx_pins_user_id ON public.pins(user_id);
-CREATE INDEX idx_pins_title_description_gin ON public.pins USING gin (to_tsvector('english', title || ' ' || description));
+create index if not exists idx_pins_user_id on public.pins(user_id);
+create index if not exists idx_pins_created_at on public.pins(created_at desc);
+-- Full-text search index (optional but good for search performance)
+-- CREATE INDEX pins_fts_idx ON public.pins USING GIN (to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '')));
 
 
--- RLS Policies for pins
-CREATE POLICY "Pins are viewable by everyone."
-    ON public.pins FOR SELECT
-    USING (true);
+-- Trigger for pins updated_at
+create trigger handle_updated_at_pins
+  before update on public.pins
+  for each row
+  execute procedure public.update_updated_at_column();
 
-CREATE POLICY "Authenticated users can create pins."
-    ON public.pins FOR INSERT
-    TO authenticated -- Restrict to authenticated role
-    WITH CHECK (auth.uid() = user_id);
+-- RLS for pins table
+alter table public.pins enable row level security;
 
-CREATE POLICY "Users can update their own pins."
-    ON public.pins FOR UPDATE
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+drop policy if exists "Allow public read access to pins" on public.pins;
+create policy "Allow public read access to pins"
+  on public.pins for select
+  using (true);
 
-CREATE POLICY "Users can delete their own pins."
-    ON public.pins FOR DELETE
-    USING (auth.uid() = user_id);
+drop policy if exists "Allow authenticated users to insert pins" on public.pins;
+create policy "Allow authenticated users to insert pins"
+  on public.pins for insert
+  to authenticated
+  with check (auth.uid() = user_id); -- user_id must match the uploader
 
--- ==========================================================================================
--- Helper Functions and Triggers
--- ==========================================================================================
+drop policy if exists "Allow owner to update their pins" on public.pins;
+create policy "Allow owner to update their pins"
+  on public.pins for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
--- Function to automatically update 'updated_at' timestamp
-CREATE OR REPLACE FUNCTION public.update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-   NEW.updated_at = timezone('utc'::text, now());
-   RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-COMMENT ON FUNCTION public.update_updated_at_column() IS 'Automatically updates the updated_at timestamp on row modification.';
-
--- Triggers for 'updated_at'
-CREATE TRIGGER handle_profile_updated_at
-    BEFORE UPDATE ON public.profiles
-    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
-CREATE TRIGGER handle_pin_updated_at
-    BEFORE UPDATE ON public.pins
-    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+drop policy if exists "Allow owner to delete their pins" on public.pins;
+create policy "Allow owner to delete their pins"
+  on public.pins for delete
+  to authenticated
+  using (auth.uid() = user_id);
 
 
--- Function to create a profile entry when a new user signs up
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-DECLARE
-  username_generated TEXT;
-BEGIN
-  -- Attempt to generate a username from email prefix
-  username_generated := split_part(NEW.email, '@', 1);
-  -- Clean the username (remove special chars, ensure min length, etc.)
-  -- This is a basic cleaning, might need to be more robust
-  username_generated := lower(regexp_replace(username_generated, '[^a-zA-Z0-9_.]', '', 'g'));
-  IF char_length(username_generated) < 3 THEN
-    username_generated := username_generated || '_user';
-  END IF;
-  -- Ensure uniqueness by appending a short random string if it already exists
-  -- This is a simplified approach; a loop with checks would be more robust for collisions
-  IF EXISTS (SELECT 1 FROM public.profiles WHERE username = username_generated) THEN
-     username_generated := username_generated || '_' || substr(extensions.uuid_generate_v4()::text, 1, 4);
-  END IF;
+-- Supabase Auth Hook: Handle New User
+-- Creates a profile entry when a new user signs up.
+create or replace function public.handle_new_user()
+returns trigger as $$
+declare
+  base_username text;
+  final_username text;
+  counter integer := 0;
+  user_email_prefix text;
+begin
+  -- Extract email prefix for default username
+  user_email_prefix := split_part(new.email, '@', 1);
+  base_username := regexp_replace(user_email_prefix, '[^a-zA-Z0-9_.]', '', 'g');
 
-  INSERT INTO public.profiles (id, username, full_name, avatar_url)
-  VALUES (
-    NEW.id,
-    username_generated,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', NULL), -- Get full_name from metadata if available
-    COALESCE(NEW.raw_user_meta_data->>'avatar_url', NULL) -- Get avatar_url from metadata if available
+  -- Ensure base_username is at least 3 characters
+  if char_length(base_username) < 3 then
+    base_username := base_username || 'user';
+  end if;
+
+  -- Ensure username is unique, appending counter if necessary
+  final_username := base_username;
+  while exists (select 1 from public.profiles where username = final_username) loop
+    counter := counter + 1;
+    final_username := base_username || counter::text;
+  end loop;
+
+  insert into public.profiles (id, username, full_name, avatar_url)
+  values (
+    new.id,
+    final_username,
+    coalesce(new.raw_user_meta_data->>'full_name', null), -- From OAuth or signup metadata
+    coalesce(new.raw_user_meta_data->>'avatar_url', null) -- From OAuth or signup metadata
   );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+  return new;
+end;
+$$ language plpgsql security definer; -- security definer to allow writing to public.profiles
 
-COMMENT ON FUNCTION public.handle_new_user() IS 'Creates a public.profiles entry for a new auth.users entry.';
+-- Trigger for new user
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 
--- Trigger for new user signup
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
-
--- ==========================================================================================
--- Supabase Storage RLS Policies (storage.objects table)
+-- STORAGE RLS POLICIES
 --
--- CRITICAL: These policies assume you have MANUALLY CREATED buckets named
--- 'avatars' and 'pins' in your Supabase Storage dashboard and made them PUBLIC.
--- If buckets are private, RLS policies for SELECT would need to be more specific.
--- ==========================================================================================
+-- IMPORTANT NOTE:
+-- The following policies for storage.objects are defined here for completeness.
+-- However, they will ONLY BE ACTIVE if you MANUALLY ENABLE Row Level Security (RLS)
+-- on the 'storage.objects' table itself via the Supabase Dashboard (Database > Row Level Security).
+-- This script does NOT automatically enable RLS on 'storage.objects'.
+--
+-- If RLS is NOT enabled on 'storage.objects':
+--   - Read access to buckets is controlled by the "Public bucket" toggle in the Supabase UI.
+--     Ensure 'pins' and 'avatars' buckets are set to PUBLIC in the UI for images to be viewable.
+--   - Write (insert, update, delete) access to buckets is generally allowed for ANY authenticated user
+--     by Supabase default. Your application logic should ensure only intended users perform uploads.
 
--- Enable RLS on storage.objects if not already enabled.
--- This is crucial for the policies below to take effect.
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- Drop existing Storage RLS policies to avoid conflicts before recreating them
+DROP POLICY IF EXISTS "Public read access for pins bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated insert for pins bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Owner update for pins bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Owner delete for pins bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Public read access for avatars bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated insert for avatars bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Owner update for avatars bucket" ON storage.objects;
+DROP POLICY IF EXISTS "Owner delete for avatars bucket" ON storage.objects;
 
--- Drop existing policies for a cleaner setup (optional, but good for resets)
--- Be cautious with these drop statements in a production environment if you have custom policies.
-DROP POLICY IF EXISTS "Allow authenticated upload to avatars" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public read access to avatars" ON storage.objects;
-DROP POLICY IF EXISTS "Allow owner to update their avatar" ON storage.objects;
-DROP POLICY IF EXISTS "Allow owner to delete their avatar" ON storage.objects;
+-- RLS policies for storage.objects (PINS bucket)
+CREATE POLICY "Public read access for pins bucket"
+  ON storage.objects FOR SELECT
+  USING ( bucket_id = 'pins' );
 
-DROP POLICY IF EXISTS "Allow authenticated upload to pins" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public read access to pins" ON storage.objects;
-DROP POLICY IF EXISTS "Allow owner to update their pin image" ON storage.objects;
-DROP POLICY IF EXISTS "Allow owner to delete their pin image" ON storage.objects;
+CREATE POLICY "Authenticated insert for pins bucket"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK ( bucket_id = 'pins' AND auth.uid() IS NOT NULL ); -- Check user is authenticated
 
+CREATE POLICY "Owner update for pins bucket"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING ( bucket_id = 'pins' AND auth.uid() = owner ); -- Owner is automatically set by Supabase to uploader's UID
 
--- Policies for 'avatars' bucket
-CREATE POLICY "Allow authenticated upload to avatars"
-    ON storage.objects FOR INSERT TO authenticated
-    WITH CHECK (bucket_id = 'avatars' AND auth.uid() = owner); -- owner is automatically set to auth.uid() by Supabase
+CREATE POLICY "Owner delete for pins bucket"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING ( bucket_id = 'pins' AND auth.uid() = owner );
 
-CREATE POLICY "Allow public read access to avatars"
-    ON storage.objects FOR SELECT
-    USING (bucket_id = 'avatars');
+-- RLS policies for storage.objects (AVATARS bucket)
+CREATE POLICY "Public read access for avatars bucket"
+  ON storage.objects FOR SELECT
+  USING ( bucket_id = 'avatars' );
 
-CREATE POLICY "Allow owner to update their avatar"
-    ON storage.objects FOR UPDATE TO authenticated
-    USING (bucket_id = 'avatars' AND auth.uid() = owner)
-    WITH CHECK (bucket_id = 'avatars' AND auth.uid() = owner);
+CREATE POLICY "Authenticated insert for avatars bucket"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK ( bucket_id = 'avatars' AND auth.uid() IS NOT NULL );
 
-CREATE POLICY "Allow owner to delete their avatar"
-    ON storage.objects FOR DELETE TO authenticated
-    USING (bucket_id = 'avatars' AND auth.uid() = owner);
+CREATE POLICY "Owner update for avatars bucket"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING ( bucket_id = 'avatars' AND auth.uid() = owner );
 
+CREATE POLICY "Owner delete for avatars bucket"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING ( bucket_id = 'avatars' AND auth.uid() = owner );
 
--- Policies for 'pins' bucket
-CREATE POLICY "Allow authenticated upload to pins"
-    ON storage.objects FOR INSERT TO authenticated
-    WITH CHECK (bucket_id = 'pins' AND auth.uid() = owner); -- owner is automatically set to auth.uid() by Supabase
+-- Ensure the an authenticated user can see their own user data from auth.users
+-- This is often default but good to be explicit if issues arise with auth.uid() in policies.
+-- GRANT SELECT ON TABLE auth.users TO authenticated;
 
-CREATE POLICY "Allow public read access to pins"
-    ON storage.objects FOR SELECT
-    USING (bucket_id = 'pins');
+-- Ensure the database owner can bypass RLS (usually default)
+-- ALTER TABLE public.pins BYPASS RLS; -- Only for superuser or if specifically needed for admin tasks
 
-CREATE POLICY "Allow owner to update their pin image"
-    ON storage.objects FOR UPDATE TO authenticated
-    USING (bucket_id = 'pins' AND auth.uid() = owner)
-    WITH CHECK (bucket_id = 'pins' AND auth.uid() = owner);
-
-CREATE POLICY "Allow owner to delete their pin image"
-    ON storage.objects FOR DELETE TO authenticated
-    USING (bucket_id = 'pins' AND auth.uid() = owner);
-
--- ==========================================================================================
--- Final sanity checks and notes:
--- 1. Ensure your Supabase Project URL and Anon Key are correctly set in .env.local.
--- 2. After running this script, REFRESH THE SUPABASE SCHEMA CACHE via the Supabase Dashboard (API section).
--- 3. Manually create 'avatars' and 'pins' buckets in Supabase Storage and set them to PUBLIC.
--- 4. Test user signup, profile updates, pin creation, and image uploads.
--- ==========================================================================================
-SELECT 'Pinclone Schema V2.0 setup complete.' AS status;
-
-    
+-- Note: If you encounter "function extensions.uuid_generate_v4() does not exist",
+-- ensure the "uuid-ossp" extension is enabled AND in the 'extensions' schema,
+-- or adjust the default function call to `public.uuid_generate_v4()` if it's in 'public'.
+-- This schema assumes it's in 'extensions'.
+```
