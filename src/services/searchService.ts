@@ -1,8 +1,11 @@
+
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Pin, Profile } from "@/types";
 import { mapSupabasePin } from "./pinService"; // Assuming mapSupabasePin is exported from pinService
+import type { PinWithUploaderFromSupabase } from "@/types";
+
 
 export async function searchUsers(
   query: string,
@@ -14,16 +17,21 @@ export async function searchUsers(
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("*") // Selects all columns including created_at and updated_at
       .or(`username.ilike.%${query.trim()}%,full_name.ilike.%${query.trim()}%`)
       .limit(10);
 
     if (error) {
+      console.error("Error searching users:", error.message);
       return { users: [], error: error.message };
     }
     return { users: data || [], error: null };
   } catch (e: any) {
-    return { users: [], error: "An unexpected error occurred during search." };
+    console.error(
+      "Unexpected error in searchUsers:",
+      (e as Error).message,
+    );
+    return { users: [], error: "An unexpected error occurred during user search." };
   }
 }
 
@@ -45,25 +53,44 @@ export async function searchPins(
       .from("pins")
       .select(
         `
-        *,
-        profiles (
+        id,
+        user_id,
+        image_url,
+        title,
+        description,
+        created_at,
+        updated_at,
+        width,
+        height,
+        uploader_profile:profiles!inner (
           username,
           avatar_url,
           full_name
         )
       `,
       )
-      .or(`title.ilike.%${query.trim()}%,description.ilike.%${query.trim()}%`)
+      .or(`title.ilike.%${query.trim()}%,description.ilike.%${query.trim()}%`) // Search in title and description
       .order("created_at", { ascending: false })
       .range(from, to);
 
     if (error) {
+      console.error("Error searching pins:", error.message);
       return { pins: [], error: error.message };
     }
 
-    const pins = data ? await Promise.all(data.map(mapSupabasePin)) : [];
+    const pins = data
+      ? await Promise.all(
+          data.map((p) =>
+            mapSupabasePin(p as PinWithUploaderFromSupabase),
+          ),
+        )
+      : [];
     return { pins, error: null };
   } catch (e: any) {
+    console.error(
+      "Unexpected error in searchPins:",
+      (e as Error).message,
+    );
     return {
       pins: [],
       error: "An unexpected error occurred during pin search.",

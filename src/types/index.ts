@@ -1,4 +1,3 @@
-
 export interface Profile {
   id: string; // Corresponds to auth.users.id
   username: string; // Now NOT NULL in DB
@@ -7,7 +6,7 @@ export interface Profile {
   bio: string | null;
   website: string | null;
   created_at: string;
-  updated_at: string; // Added from new schema
+  updated_at: string; // Added
 }
 
 export interface Pin {
@@ -17,13 +16,10 @@ export interface Pin {
   title: string | null;
   description: string | null;
   created_at: string;
-  updated_at: string; // Added from new schema
-  width: number; // Now NOT NULL in DB
-  height: number; // Now NOT NULL in DB
-  uploader: Pick<Profile, "username" | "avatar_url" | "full_name">; // username is string
-  tags?: Tag[]; // Optional, if tags are loaded
-  likes_count?: number;
-  comments_count?: number;
+  updated_at: string; // Added
+  width: number; // NOT NULL in DB
+  height: number; // NOT NULL in DB
+  uploader: Pick<Profile, "username" | "avatar_url" | "full_name">;
 }
 
 // For Supabase responses that include joined profile data directly
@@ -34,40 +30,14 @@ export interface PinWithUploaderFromSupabase {
   title: string | null;
   description: string | null;
   created_at: string;
-  updated_at: string;
-  width: number; // From DB, NOT NULL
-  height: number; // From DB, NOT NULL
-  profiles: { // Assumed to be non-null due to FK relationship and select join
+  updated_at: string; // Added
+  width: number; // NOT NULL in DB
+  height: number; // NOT NULL in DB
+  uploader_profile: { // Renamed from profiles to match query alias
     username: string; // From DB, NOT NULL
     avatar_url: string | null;
     full_name: string | null;
   };
 }
 
-export interface Tag {
-  id: number;
-  name: string;
-  created_at: string;
-}
-
-export interface Comment {
-  id: string;
-  pin_id: string;
-  user_id: string;
-  content: string;
-  parent_comment_id: string | null;
-  created_at: string;
-  updated_at: string;
-  commenter?: Pick<Profile, "username" | "avatar_url" | "full_name">;
-}
-
-export interface Board {
-  id: string;
-  user_id: string;
-  name: string;
-  description: string | null;
-  is_private: boolean;
-  cover_image_url: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// Tags, Comments, Likes, Boards are removed as per the simplified schema.

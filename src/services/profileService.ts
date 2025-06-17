@@ -1,3 +1,4 @@
+
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -12,13 +13,12 @@ export async function fetchProfileByUsername(
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
-      .ilike("username", username.trim()) // Ensure query uses trimmed username
+      .select("*") // Selects all columns including created_at and updated_at
+      .ilike("username", username.trim())
       .single();
 
     if (error) {
       if (error.code === "PGRST116") {
-        // "PGRST116" implies 0 rows returned, which is expected for "not found"
         return { profile: null, error: "Profile not found." };
       }
       console.error(
@@ -45,7 +45,7 @@ export async function fetchProfileById(
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("*") // Selects all columns including created_at and updated_at
       .eq("id", userId)
       .single();
 
@@ -75,7 +75,6 @@ export async function updateProfile(
     return { profile: null, error: "User ID is required for update." };
   }
 
-  // Validate username: must exist and be non-empty if provided in updates
   if (updates.username !== undefined) {
     if (updates.username === null || updates.username.trim() === "") {
       return { profile: null, error: "Username cannot be empty." };
@@ -86,43 +85,36 @@ export async function updateProfile(
         error: "Username must be at least 3 characters.",
       };
     }
-    updates.username = updates.username.trim(); // Use trimmed username
+    updates.username = updates.username.trim();
   }
 
-  // Trim other string fields if they are provided
   if (updates.full_name !== undefined)
     updates.full_name = updates.full_name?.trim() || null;
   if (updates.bio !== undefined) updates.bio = updates.bio?.trim() || null;
   if (updates.website !== undefined)
     updates.website = updates.website?.trim() || null;
 
+  // Ensure 'id' is part of the object for upsert.
+  // 'updated_at' will be handled by the database trigger.
   const profileDataForUpsert: TablesInsert<"profiles"> = {
     id: userId,
-    // If username is not in updates, it won't be changed by upsert unless it's a new insert.
-    // For new insert, username must be provided or have a DB default (which our trigger aims to do).
-    // The calling form (settings page) is responsible for ensuring username is present for new profiles.
-    ...(updates.username && { username: updates.username }),
-    ...(updates.full_name !== undefined && { full_name: updates.full_name }),
-    ...(updates.avatar_url !== undefined && { avatar_url: updates.avatar_url }),
-    ...(updates.bio !== undefined && { bio: updates.bio }),
-    ...(updates.website !== undefined && { website: updates.website }),
+    ...updates, // Spread the validated and trimmed updates
   };
 
-  // Remove undefined keys from profileDataForUpsert to avoid issues with Supabase client
+  // Remove undefined keys to prevent issues with Supabase client
   Object.keys(profileDataForUpsert).forEach((key) => {
-    if (
-      profileDataForUpsert[key as keyof typeof profileDataForUpsert] ===
-      undefined
-    ) {
-      delete profileDataForUpsert[key as keyof typeof profileDataForUpsert];
+    const K = key as keyof typeof profileDataForUpsert;
+    if (profileDataForUpsert[K] === undefined) {
+      delete profileDataForUpsert[K];
     }
   });
+
 
   try {
     const { data, error } = await supabase
       .from("profiles")
       .upsert(profileDataForUpsert, { onConflict: "id" })
-      .select()
+      .select() // Selects all columns including created_at and updated_at
       .single();
 
     if (error) {
@@ -131,8 +123,9 @@ export async function updateProfile(
         error.message,
       );
       if (
-        error.message.includes("profiles_username_key") ||
-        error.message.includes("profiles_username_idx")
+        error.message.includes("profiles_username_key") || // Supabase < v14
+        error.message.includes("profiles_username_idx") || // Supabase >= v14
+        error.message.includes("duplicate key value violates unique constraint \"profiles_username_key\"") // More explicit PG error
       ) {
         return { profile: null, error: "This username is already taken." };
       }
@@ -160,7 +153,7 @@ export async function checkUsernameAvailability(
     const { data, error } = await supabase
       .from("profiles")
       .select("username")
-      .ilike("username", trimmedUsername) // Use trimmed username for check
+      .ilike("username", trimmedUsername)
       .maybeSingle();
 
     if (error) {
@@ -170,7 +163,7 @@ export async function checkUsernameAvailability(
       );
       return { available: false, error: error.message };
     }
-    return { available: !data, error: null }; // True if no data (username not found, so available)
+    return { available: !data, error: null };
   } catch (e: any) {
     console.error(
       "Unexpected error in checkUsernameAvailability:",
