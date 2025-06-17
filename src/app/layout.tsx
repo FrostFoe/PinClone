@@ -1,4 +1,3 @@
-
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import AppClientLayout from "./app-client-layout";
@@ -80,5 +79,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    

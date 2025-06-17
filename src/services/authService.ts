@@ -1,4 +1,3 @@
-
 "use server";
 
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
@@ -28,7 +27,8 @@ export async function signUpWithEmail(formData: FormData) {
     password,
     options: {
       emailRedirectTo: callbackUrl,
-      data: { // This data is passed to the `handle_new_user` trigger in SQL
+      data: {
+        // This data is passed to the `handle_new_user` trigger in SQL
         full_name: fullName,
         // The trigger will attempt to get avatar_url from raw_user_meta_data if set by OAuth later
       },
@@ -69,7 +69,5 @@ export async function signInWithPassword(formData: FormData) {
   return { session: data.session, error: null };
 }
 
-// Note: signInWithOAuthBrowser and signOutClient are in @/lib/auth/client.ts 
+// Note: signInWithOAuthBrowser and signOutClient are in @/lib/auth/client.ts
 // because they use browser-specific APIs (window.location).
-
-    

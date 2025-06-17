@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -141,5 +140,3 @@ const PinCard = memo(function PinCard({
 });
 
 export default PinCard;
-
-    

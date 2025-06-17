@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -30,5 +29,3 @@ const Separator = React.forwardRef<
 Separator.displayName = SeparatorPrimitive.Root.displayName;
 
 export { Separator };
-
-    

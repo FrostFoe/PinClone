@@ -1,4 +1,3 @@
-
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { fetchProfileByUsername } from "@/services/profileService";
@@ -57,17 +56,21 @@ export async function generateMetadata({
 }
 
 // This is now a Server Component that renders the Client Component
-export default function UserPublicProfilePageContainer({ params }: { params: { username: string }}) {
+export default function UserPublicProfilePageContainer({
+  params,
+}: {
+  params: { username: string };
+}) {
   return (
-    <Suspense fallback={
-      <div className="flex-1 flex flex-col animate-fade-in pt-8 items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading Profile...</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex-1 flex flex-col animate-fade-in pt-8 items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="mt-4 text-muted-foreground">Loading Profile...</p>
+        </div>
+      }
+    >
       <UserPublicProfileClientContent params={params} />
     </Suspense>
   );
 }
-
-    

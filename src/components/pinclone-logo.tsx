@@ -1,4 +1,3 @@
-
 // src/components/pinclone-logo.tsx
 import type { SVGProps } from "react";
 
@@ -22,5 +21,3 @@ const PincloneLogo = (props: SVGProps<SVGSVGElement>) => (
 );
 
 export default PincloneLogo;
-
-    

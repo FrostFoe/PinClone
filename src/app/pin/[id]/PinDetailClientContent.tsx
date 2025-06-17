@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Pin } from "@/types";
@@ -52,7 +51,9 @@ interface PinDetailClientContentProps {
   params: { id: string };
 }
 
-export default function PinDetailClientContent({ params: routeParams }: PinDetailClientContentProps) {
+export default function PinDetailClientContent({
+  params: routeParams,
+}: PinDetailClientContentProps) {
   const router = useRouter();
   const { toast } = useToast();
   const pinId = routeParams?.id as string; // Use passed params
@@ -86,13 +87,13 @@ export default function PinDetailClientContent({ params: routeParams }: PinDetai
         setPinDetail(pin);
         // Initial load of related pins moved to a separate useEffect dependent on pinDetail
         // Update document title
-        if (typeof document !== 'undefined') {
+        if (typeof document !== "undefined") {
           document.title = `${pin.title || "Pin"} by ${pin.uploader?.username || "User"} | Pinclone`;
         }
       }
       setIsLoadingPin(false);
     },
-    [toast], 
+    [toast],
   );
 
   const loadMoreRelatedPins = useCallback(
@@ -190,7 +191,7 @@ export default function PinDetailClientContent({ params: routeParams }: PinDetai
     loadMoreRelatedPins,
     hasMoreRelated,
     isLoadingRelated,
-    pinDetail, 
+    pinDetail,
     relatedPage,
   ]);
 
@@ -559,5 +560,3 @@ export default function PinDetailClientContent({ params: routeParams }: PinDetai
     </>
   );
 }
-
-    

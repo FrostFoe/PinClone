@@ -1,4 +1,3 @@
-
 import { genkit } from "genkit";
 import { googleAI } from "@genkit-ai/googleai";
 
@@ -10,5 +9,3 @@ export const ai = genkit({
   // You can set other default configurations here, e.g., temperature
   // defaultModelConfig: { temperature: 0.7 },
 });
-
-    

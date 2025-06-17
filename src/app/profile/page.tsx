@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -141,7 +140,7 @@ export default function ProfilePage() {
           description: "Please log in to view your profile.",
         });
         router.push("/login?next=/profile");
-        setProfileState("error"); 
+        setProfileState("error");
       }
     };
     fetchUserSession();
@@ -439,5 +438,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    

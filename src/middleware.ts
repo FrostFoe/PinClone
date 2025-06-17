@@ -1,4 +1,3 @@
-
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
@@ -21,7 +20,7 @@ export async function middleware(request: NextRequest) {
     // Avoid throwing an error here that might break all requests.
     // Instead, return the response and let pages handle auth state.
     // Log extensively.
-    return response; 
+    return response;
   }
 
   let supabase;
@@ -33,14 +32,16 @@ export async function middleware(request: NextRequest) {
         },
         set(name: string, value: string, options: CookieOptions) {
           request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({ // Re-create response to apply cookies
+          response = NextResponse.next({
+            // Re-create response to apply cookies
             request: { headers: request.headers },
           });
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
           request.cookies.set({ name, value: "", ...options });
-           response = NextResponse.next({ // Re-create response to apply cookies
+          response = NextResponse.next({
+            // Re-create response to apply cookies
             request: { headers: request.headers },
           });
           response.cookies.set({ name, value: "", ...options });
@@ -54,7 +55,7 @@ export async function middleware(request: NextRequest) {
       e.stack,
     );
     // Allow request to proceed, log error.
-    return response; 
+    return response;
   }
 
   try {
@@ -84,5 +85,3 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
-
-    

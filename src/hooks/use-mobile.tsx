@@ -1,4 +1,3 @@
-
 import * as React from "react";
 
 const MOBILE_BREAKPOINT = 768; // Standard Tailwind md breakpoint
@@ -15,14 +14,14 @@ export function useIsMobile() {
     }
 
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    
+
     const onChange = () => {
       setIsMobile(mql.matches);
     };
 
     // Initial check
     onChange();
-    
+
     mql.addEventListener("change", onChange);
 
     return () => mql.removeEventListener("change", onChange);
@@ -30,5 +29,3 @@ export function useIsMobile() {
 
   return !!isMobile; // Coerce to boolean, returning false during SSR or initial client render before effect
 }
-
-    

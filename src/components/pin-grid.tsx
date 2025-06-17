@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Pin } from "@/types";
@@ -16,7 +15,7 @@ export default function PinGrid({
   showPinDetailsOverlay = false, // Default to false if not provided
 }: PinGridProps) {
   if (!pins || pins.length === 0) {
-    // This case should ideally be handled by the parent component 
+    // This case should ideally be handled by the parent component
     // to show a more contextual message (e.g., "No pins found").
     // Returning null here to avoid rendering an empty grid container.
     return null;
@@ -36,5 +35,3 @@ export default function PinGrid({
     </div>
   );
 }
-
-    

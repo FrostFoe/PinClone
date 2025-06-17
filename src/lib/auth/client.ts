@@ -1,4 +1,3 @@
-
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -50,5 +49,3 @@ export async function signOutClient() {
   }
   return { error: null };
 }
-
-    

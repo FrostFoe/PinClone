@@ -1,4 +1,3 @@
-
 import { Suspense } from "react";
 import SearchUI, {
   SearchPageSkeleton as SearchUIInternalSkeleton,
@@ -54,5 +53,3 @@ function SearchPageSkeleton() {
     </>
   );
 }
-
-    

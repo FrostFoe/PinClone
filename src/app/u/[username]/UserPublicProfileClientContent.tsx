@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -27,10 +26,12 @@ interface UserPublicProfileClientContentProps {
   params: { username: string };
 }
 
-export default function UserPublicProfileClientContent({ params: routeParams }: UserPublicProfileClientContentProps) {
+export default function UserPublicProfileClientContent({
+  params: routeParams,
+}: UserPublicProfileClientContentProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const username = routeParams?.username as string; 
+  const username = routeParams?.username as string;
 
   const [userData, setUserData] = useState<Profile | null>(null);
   const [pins, setPins] = useState<Pin[]>([]);
@@ -87,7 +88,7 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
       }
       setIsLoadingPins(false);
     },
-    [toast, isLoadingPins, hasMorePins], 
+    [toast, isLoadingPins, hasMorePins],
   );
 
   const loadUserProfile = useCallback(
@@ -106,17 +107,17 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
           description: error || `Profile for @${uname} could not be loaded.`,
         });
         // Potentially redirect or show a "not found" state within this component
-        router.push('/not-found'); // Redirect to not-found page
+        router.push("/not-found"); // Redirect to not-found page
       } else {
         setUserData(profile);
-        if (typeof document !== 'undefined') {
-             document.title = `${profile.full_name || profile.username}'s Profile | Pinclone`;
+        if (typeof document !== "undefined") {
+          document.title = `${profile.full_name || profile.username}'s Profile | Pinclone`;
         }
         // Initial pins load will be triggered by useEffect watching userData.id & activeTab
       }
       setIsLoadingUser(false);
     },
-    [toast, router], 
+    [toast, router],
   );
 
   useEffect(() => {
@@ -126,8 +127,8 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
   }, [username, loadUserProfile]);
 
   useEffect(() => {
-    if (userData?.id && activeTab) { 
-      setPins([]); 
+    if (userData?.id && activeTab) {
+      setPins([]);
       setPinsPage(1);
       setHasMorePins(true);
       loadMorePins(userData.id, 1, true, activeTab);
@@ -161,7 +162,7 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
     hasMorePins,
     isLoadingPins,
     pinsPage,
-    userData?.id, 
+    userData?.id,
     activeTab,
   ]);
 
@@ -387,5 +388,3 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
     </div>
   );
 }
-
-    

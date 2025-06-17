@@ -1,4 +1,3 @@
-
 // Represents a user's public profile information.
 export interface Profile {
   id: string; // Corresponds to auth.users.id
@@ -49,5 +48,3 @@ export interface PinWithUploaderFromSupabase {
     // but they would be available if selected in the query.
   };
 }
-
-    

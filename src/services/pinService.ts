@@ -9,17 +9,13 @@ import type { TablesInsert } from "@/types/supabase";
 export async function mapSupabasePin(
   supabasePin: PinWithUploaderFromSupabase,
 ): Promise<Pin> {
-  // The !inner join in the query means uploader_profile should always exist.
-  // Added a check for robustness.
   if (!supabasePin.uploader_profile) {
     console.error(
-      `Critical data integrity issue: Uploader profile missing for pin ${supabasePin.id}. This suggests a problem with the database join or RLS. Pin data:`, supabasePin
+      `Data integrity issue: Uploader profile (uploader_profile) missing for pin ID ${supabasePin.id}. This suggests a problem with the 'profiles!inner' join in the query or an RLS policy preventing the profile data from being returned with the pin. Pin data:`,
+      JSON.stringify(supabasePin, null, 2),
     );
-    // This situation should ideally not be reached with an inner join.
-    // Throw an error or return a Pin with partial/default uploader info if this happens.
-    // For now, throwing an error as it indicates a fundamental data issue.
     throw new Error(
-      `Data integrity issue: Uploader profile missing for pin ID ${supabasePin.id}.`,
+      `Data integrity issue: Uploader profile data not available for pin ID ${supabasePin.id}.`,
     );
   }
 
@@ -31,12 +27,12 @@ export async function mapSupabasePin(
     image_url: supabasePin.image_url,
     title: supabasePin.title,
     description: supabasePin.description,
-    created_at: supabasePin.created_at, // Already a string from Supabase
-    updated_at: supabasePin.updated_at, // Already a string from Supabase
-    width: supabasePin.width, // Schema ensures this is NOT NULL
-    height: supabasePin.height, // Schema ensures this is NOT NULL
+    created_at: supabasePin.created_at,
+    updated_at: supabasePin.updated_at,
+    width: supabasePin.width,
+    height: supabasePin.height,
     uploader: {
-      username: profileData.username, // Schema ensures this is NOT NULL
+      username: profileData.username,
       avatar_url: profileData.avatar_url,
       full_name: profileData.full_name,
     },
@@ -52,7 +48,7 @@ export async function fetchAllPins(
   const to = from + limit - 1;
 
   try {
-    const { data, error, status, statusText } = await supabase
+    const { data, error, status, statusText, count } = await supabase
       .from("pins")
       .select(
         `
@@ -71,25 +67,36 @@ export async function fetchAllPins(
           full_name
         )
       `,
+        { count: "exact" },
       )
       .order("created_at", { ascending: false })
       .range(from, to);
 
     if (error) {
-      console.error("Error fetching all pins from Supabase:", { message: error.message, details: error.details, hint: error.hint, code: error.code, status, statusText });
+      console.error("Error fetching all pins from Supabase:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        status,
+        statusText,
+        queryRange: `from ${from} to ${to}`,
+        returnedCount: count,
+      });
       return { pins: [], error: error.message };
     }
 
     const pins = data
       ? await Promise.all(
-          data.map((p) =>
-            mapSupabasePin(p as PinWithUploaderFromSupabase),
-          ),
+          data.map((p) => mapSupabasePin(p as PinWithUploaderFromSupabase)),
         )
       : [];
     return { pins, error: null };
   } catch (e: any) {
-    console.error("Unexpected error in fetchAllPins service:", { message: (e as Error).message, stack: (e as Error).stack });
+    console.error("Unexpected error in fetchAllPins service:", {
+      message: (e as Error).message,
+      stack: (e as Error).stack,
+    });
     return { pins: [], error: "An unexpected server error occurred." };
   }
 }
@@ -113,7 +120,7 @@ export async function fetchPinById(
         updated_at,
         width,
         height,
-        uploader_profile:profiles!inner ( 
+        uploader_profile:profiles!inner (
           username,
           avatar_url,
           full_name
@@ -125,16 +132,24 @@ export async function fetchPinById(
 
     if (error) {
       if (error.code === "PGRST116") {
-        // PGRST116: "Searched for a single row, but found no rows"
+        console.warn(`Pin not found for ID ${id} (PGRST116).`);
         return { pin: null, error: "Pin not found." };
       }
-      console.error(`Error fetching pin by ID ${id} from Supabase:`, { message: error.message, details: error.details, hint: error.hint, code: error.code, status, statusText });
+      console.error(`Error fetching pin by ID ${id} from Supabase:`, {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        status,
+        statusText,
+      });
       return { pin: null, error: error.message };
     }
 
     if (!data) {
-      // This case should ideally not be reached if error is null and no PGRST116
-      console.warn(`Pin data is null for ID ${id} after fetch, though no specific error was returned by Supabase. This might indicate an RLS issue silently blocking the data.`);
+      console.warn(
+        `Pin data is null for ID ${id} after fetch, though no specific error was returned by Supabase. This might indicate an RLS issue silently blocking the data or the pin truly does not exist.`,
+      );
       return { pin: null, error: "Pin data is unexpectedly null after fetch." };
     }
 
@@ -166,7 +181,7 @@ export async function fetchPinsByUserId(
   const to = from + limit - 1;
 
   try {
-    const { data, error, status, statusText } = await supabase
+    const { data, error, status, statusText, count } = await supabase
       .from("pins")
       .select(
         `
@@ -185,6 +200,7 @@ export async function fetchPinsByUserId(
           full_name
         )
       `,
+        { count: "exact" },
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -193,15 +209,22 @@ export async function fetchPinsByUserId(
     if (error) {
       console.error(
         `Error fetching pins for user ID ${userId} from Supabase:`,
-        { message: error.message, details: error.details, hint: error.hint, code: error.code, status, statusText },
+        {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          status,
+          statusText,
+          queryRange: `from ${from} to ${to}`,
+          returnedCount: count,
+        },
       );
       return { pins: [], error: error.message };
     }
     const pins = data
       ? await Promise.all(
-          data.map((p) =>
-            mapSupabasePin(p as PinWithUploaderFromSupabase),
-          ),
+          data.map((p) => mapSupabasePin(p as PinWithUploaderFromSupabase)),
         )
       : [];
     return { pins, error: null };
@@ -230,7 +253,12 @@ export async function createPin(pinData: {
     return { pin: null, error: "User not authenticated." };
   }
 
-  if (typeof pinData.width !== "number" || typeof pinData.height !== "number" || pinData.width <= 0 || pinData.height <= 0) {
+  if (
+    typeof pinData.width !== "number" ||
+    typeof pinData.height !== "number" ||
+    pinData.width <= 0 ||
+    pinData.height <= 0
+  ) {
     return {
       pin: null,
       error: "Pin width and height are required and must be positive numbers.",
@@ -244,11 +272,15 @@ export async function createPin(pinData: {
     description: pinData.description,
     width: pinData.width,
     height: pinData.height,
-    // created_at and updated_at will be set by DB defaults/triggers
   };
 
   try {
-    const { data: insertedPinData, error: insertError, status, statusText } = await supabase
+    const {
+      data: insertedPinData,
+      error: insertError,
+      status,
+      statusText,
+    } = await supabase
       .from("pins")
       .insert(newPin)
       .select(
@@ -272,24 +304,36 @@ export async function createPin(pinData: {
       .single();
 
     if (insertError) {
-      console.error("Error creating pin in Supabase:", { message: insertError.message, details: insertError.details, hint: insertError.hint, code: insertError.code, status, statusText });
+      console.error("Error creating pin in Supabase:", {
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code,
+        status,
+        statusText,
+        insertedDataAttempt: newPin,
+      });
       return { pin: null, error: insertError.message };
     }
     if (!insertedPinData) {
-      console.error("Failed to create pin or retrieve its data after insert; insertedPinData is null. This might be an RLS issue or unexpected DB behavior.");
+      console.error(
+        "Failed to create pin or retrieve its data after insert; insertedPinData is null. This might be an RLS issue, a problem with the !inner join to profiles, or unexpected DB behavior. Ensure the user's profile exists and the 'handle_new_user' trigger functions correctly.",
+      );
       return { pin: null, error: "Failed to create pin or retrieve its data." };
     }
+    
+    console.log("Successfully created pin, data from Supabase:", JSON.stringify(insertedPinData, null, 2));
 
     return {
-      pin: await mapSupabasePin(
-        insertedPinData as PinWithUploaderFromSupabase,
-      ),
+      pin: await mapSupabasePin(insertedPinData as PinWithUploaderFromSupabase),
       error: null,
     };
   } catch (e: any) {
-    console.error("Unexpected error in createPin service:", { message: (e as Error).message, stack: (e as Error).stack });
+    console.error("Unexpected error in createPin service:", {
+      message: (e as Error).message,
+      stack: (e as Error).stack,
+      pinDataAttempt: pinData,
+    });
     return { pin: null, error: "An unexpected server error occurred." };
   }
 }
-
-    

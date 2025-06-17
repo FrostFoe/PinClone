@@ -1,4 +1,3 @@
-
 // ==========================================================================================
 // !! CRITICAL SUPABASE SETUP FOR PROFILE AVATARS !!
 // ==========================================================================================
@@ -50,7 +49,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types";
 import {
   fetchProfileById,
-  updateProfile, 
+  updateProfile,
   checkUsernameAvailability,
 } from "@/services/profileService";
 import type { TablesUpdate } from "@/types/supabase";
@@ -67,8 +66,9 @@ const generateDefaultUsername = (email: string): string => {
   }
   // Append a few random chars to reduce immediate collision likelihood
   // A more robust solution might involve checking DB and iterating
-  baseUsername = baseUsername.substring(0, 15) + Math.random().toString(36).substring(2, 6);
-  return baseUsername.substring(0, 20); 
+  baseUsername =
+    baseUsername.substring(0, 15) + Math.random().toString(36).substring(2, 6);
+  return baseUsername.substring(0, 20);
 };
 
 export default function ProfileSettingsPage() {
@@ -85,7 +85,7 @@ export default function ProfileSettingsPage() {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [initialUsername, setInitialUsername] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
-  const [isInitialProfileLoad, setIsInitialProfileLoad] = useState(true); 
+  const [isInitialProfileLoad, setIsInitialProfileLoad] = useState(true);
 
   useEffect(() => {
     const getUserAndProfile = async () => {
@@ -112,17 +112,17 @@ export default function ProfileSettingsPage() {
           const defaultUsernameBase = user.email
             ? generateDefaultUsername(user.email)
             : `user${Date.now().toString().slice(-5)}`;
-          
+
           setUserData({
             id: user.id,
-            username: defaultUsernameBase, 
-            full_name: user.user_metadata?.full_name || "", 
-            avatar_url: user.user_metadata?.avatar_url || null, 
+            username: defaultUsernameBase,
+            full_name: user.user_metadata?.full_name || "",
+            avatar_url: user.user_metadata?.avatar_url || null,
             bio: "",
             website: "",
           });
           setAvatarPreview(user.user_metadata?.avatar_url || null);
-          setInitialUsername(null); 
+          setInitialUsername(null);
           toast({
             title: "Complete Your Profile",
             description:
@@ -134,7 +134,7 @@ export default function ProfileSettingsPage() {
             title: "Error fetching profile",
             description: error || "Could not load your profile data.",
           });
-          setUserData(null); 
+          setUserData(null);
         }
       } else {
         toast({
@@ -163,7 +163,8 @@ export default function ProfileSettingsPage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+      if (file.size > 2 * 1024 * 1024) {
+        // 2MB limit
         toast({
           variant: "destructive",
           title: "File too large",
@@ -187,7 +188,7 @@ export default function ProfileSettingsPage() {
     }
     const trimmedUsername = userData.username.trim();
     if (trimmedUsername === initialUsername && initialUsername !== null) {
-      setUsernameError(null); 
+      setUsernameError(null);
       return;
     }
     if (trimmedUsername.length < 3) {
@@ -195,12 +196,13 @@ export default function ProfileSettingsPage() {
       return;
     }
     if (!/^[a-zA-Z0-9_.]+$/.test(trimmedUsername)) {
-      setUsernameError("Username can only contain letters, numbers, underscores, and periods.");
+      setUsernameError(
+        "Username can only contain letters, numbers, underscores, and periods.",
+      );
       return;
     }
 
-
-    setIsSaving(true); 
+    setIsSaving(true);
     const { available, error } =
       await checkUsernameAvailability(trimmedUsername);
     if (error) {
@@ -234,7 +236,7 @@ export default function ProfileSettingsPage() {
     }
     if (
       userData.username.trim().length < 3 &&
-      userData.username.trim() !== initialUsername 
+      userData.username.trim() !== initialUsername
     ) {
       setUsernameError("Username must be at least 3 characters.");
       toast({
@@ -245,15 +247,18 @@ export default function ProfileSettingsPage() {
       return;
     }
     if (!/^[a-zA-Z0-9_.]+$/.test(userData.username.trim())) {
-      setUsernameError("Username can only contain letters, numbers, underscores, and periods.");
-       toast({
+      setUsernameError(
+        "Username can only contain letters, numbers, underscores, and periods.",
+      );
+      toast({
         variant: "destructive",
         title: "Validation Error",
-        description: "Username can only contain letters, numbers, underscores, and periods.",
+        description:
+          "Username can only contain letters, numbers, underscores, and periods.",
       });
       return;
     }
-    if (usernameError && userData.username.trim() !== initialUsername) { 
+    if (usernameError && userData.username.trim() !== initialUsername) {
       toast({
         variant: "destructive",
         title: "Validation Error",
@@ -267,23 +272,25 @@ export default function ProfileSettingsPage() {
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split(".").pop();
-      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`; 
+      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("avatars") 
+        .from("avatars")
         .upload(fileName, avatarFile, {
-          upsert: true, 
+          upsert: true,
           contentType: avatarFile.type,
         });
 
       if (uploadError) {
         console.error("Supabase storage upload error (avatars):", uploadError);
         let userMessage = "Avatar upload failed. Please try again.";
-         if (uploadError.message.includes("Bucket not found")) {
-          userMessage = "Avatar upload failed: Bucket not found. Ensure 'avatars' bucket exists and is public (or RLS configured).";
+        if (uploadError.message.includes("Bucket not found")) {
+          userMessage =
+            "Avatar upload failed: Bucket not found. Ensure 'avatars' bucket exists and is public (or RLS configured).";
         } else if (uploadError.message.includes("security policy")) {
-           userMessage = "Avatar upload failed: Permission denied. Please check storage security rules (RLS).";
+          userMessage =
+            "Avatar upload failed: Permission denied. Please check storage security rules (RLS).";
         } else {
-           userMessage = `Avatar upload failed: ${uploadError.message}.`;
+          userMessage = `Avatar upload failed: ${uploadError.message}.`;
         }
         toast({
           variant: "destructive",
@@ -293,24 +300,26 @@ export default function ProfileSettingsPage() {
         setIsSaving(false);
         return;
       }
-      
+
       if (!uploadData || !uploadData.path) {
-        throw new Error("Avatar upload succeeded but no path returned from storage.");
+        throw new Error(
+          "Avatar upload succeeded but no path returned from storage.",
+        );
       }
 
       const { data: urlData } = supabase.storage
         .from("avatars")
-        .getPublicUrl(uploadData.path); 
+        .getPublicUrl(uploadData.path);
       avatarPublicUrl = urlData.publicUrl;
     }
 
     const updates: TablesUpdate<"profiles"> = {
       full_name: userData.full_name?.trim() || null,
-      username: userData.username?.trim(), 
+      username: userData.username?.trim(),
       bio: userData.bio?.trim() || null,
       website: userData.website?.trim() || null,
-      avatar_url: avatarPublicUrl || null, 
-      updated_at: new Date().toISOString(), 
+      avatar_url: avatarPublicUrl || null,
+      updated_at: new Date().toISOString(),
     };
 
     const { profile: updatedProfile, error: updateError } = await updateProfile(
@@ -324,18 +333,21 @@ export default function ProfileSettingsPage() {
         title: "Profile Update Failed",
         description: updateError,
       });
-      if (updateError.toLowerCase().includes("username") && updateError.toLowerCase().includes("taken")) {
+      if (
+        updateError.toLowerCase().includes("username") &&
+        updateError.toLowerCase().includes("taken")
+      ) {
         setUsernameError("This username is already taken.");
       }
     } else if (updatedProfile) {
-      setUserData(updatedProfile); 
-      setInitialUsername(updatedProfile.username || null); 
-      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url) { 
-         setAvatarPreview(avatarPublicUrl); 
+      setUserData(updatedProfile);
+      setInitialUsername(updatedProfile.username || null);
+      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url) {
+        setAvatarPreview(avatarPublicUrl);
       }
-      setAvatarFile(null); 
+      setAvatarFile(null);
       toast({ title: "Profile Saved Successfully!" });
-      router.refresh(); 
+      router.refresh();
     }
     setIsSaving(false);
   };
@@ -359,7 +371,7 @@ export default function ProfileSettingsPage() {
     );
   }
 
-  if (!userData && !isLoading) { 
+  if (!userData && !isLoading) {
     return (
       <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center justify-center">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
@@ -400,14 +412,14 @@ export default function ProfileSettingsPage() {
               <div className="relative">
                 <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-secondary">
                   <AvatarImage
-                    src={avatarPreview || undefined} 
+                    src={avatarPreview || undefined}
                     alt={userData?.full_name || userData?.username || "User"}
                     data-ai-hint="profile avatar large settings"
                   />
                   <AvatarFallback className="text-4xl">
                     {userData?.full_name?.[0]?.toUpperCase() ||
                       userData?.username?.[0]?.toUpperCase() ||
-                      currentUserEmail?.[0]?.toUpperCase() || 
+                      currentUserEmail?.[0]?.toUpperCase() ||
                       "U"}
                   </AvatarFallback>
                 </Avatar>
@@ -493,12 +505,12 @@ export default function ProfileSettingsPage() {
                     name="username"
                     value={userData?.username || ""}
                     onChange={handleChange}
-                    onBlur={handleUsernameBlur} 
+                    onBlur={handleUsernameBlur}
                     className={`pl-7 h-11 focus-ring ${usernameError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     placeholder="yourusername"
                     aria-describedby="username-error"
                     disabled={isSaving}
-                    required 
+                    required
                   />
                 </div>
                 {usernameError && (
@@ -509,12 +521,22 @@ export default function ProfileSettingsPage() {
                     {usernameError}
                   </p>
                 )}
-                 {!usernameError && userData?.username && userData.username.trim().length > 0 && userData.username.trim().length < 3 && (
-                  <p className="text-xs text-destructive mt-1">Username must be at least 3 characters.</p>
-                )}
-                 {!usernameError && userData?.username && !/^[a-zA-Z0-9_.]+$/.test(userData.username.trim()) && (
-                  <p className="text-xs text-destructive mt-1">Username can only contain letters, numbers, underscores, and periods.</p>
-                )}
+                {!usernameError &&
+                  userData?.username &&
+                  userData.username.trim().length > 0 &&
+                  userData.username.trim().length < 3 && (
+                    <p className="text-xs text-destructive mt-1">
+                      Username must be at least 3 characters.
+                    </p>
+                  )}
+                {!usernameError &&
+                  userData?.username &&
+                  !/^[a-zA-Z0-9_.]+$/.test(userData.username.trim()) && (
+                    <p className="text-xs text-destructive mt-1">
+                      Username can only contain letters, numbers, underscores,
+                      and periods.
+                    </p>
+                  )}
               </div>
               <div className="md:col-span-2">
                 <Label
@@ -550,7 +572,7 @@ export default function ProfileSettingsPage() {
                   <Input
                     id="website"
                     name="website"
-                    type="url" 
+                    type="url"
                     value={userData?.website || ""}
                     onChange={handleChange}
                     className="pl-10 h-11 focus-ring"
@@ -582,7 +604,7 @@ export default function ProfileSettingsPage() {
                   value={currentUserEmail || "Loading..."}
                   className="pl-10 h-11 bg-muted/50 border-muted/30 cursor-not-allowed"
                   placeholder="your.email@example.com"
-                  disabled 
+                  disabled
                   readOnly
                 />
               </div>
@@ -607,7 +629,15 @@ export default function ProfileSettingsPage() {
               type="submit"
               size="lg"
               className="rounded-full px-8 bg-primary hover:bg-primary/90 focus-ring"
-              disabled={isSaving || (!!usernameError && userData?.username !== initialUsername) || (userData?.username && userData.username.trim().length <3 && userData.username.trim() !== initialUsername) || (userData?.username && !/^[a-zA-Z0-9_.]+$/.test(userData.username.trim()))}
+              disabled={
+                isSaving ||
+                (!!usernameError && userData?.username !== initialUsername) ||
+                (userData?.username &&
+                  userData.username.trim().length < 3 &&
+                  userData.username.trim() !== initialUsername) ||
+                (userData?.username &&
+                  !/^[a-zA-Z0-9_.]+$/.test(userData.username.trim()))
+              }
             >
               {isSaving ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -622,5 +652,3 @@ export default function ProfileSettingsPage() {
     </main>
   );
 }
-
-    

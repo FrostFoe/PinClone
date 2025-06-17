@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -102,7 +101,6 @@ const SidebarProvider = React.forwardRef<
         }
       }
     }, [isMobile]);
-
 
     const toggleSidebar = React.useCallback(() => {
       return isMobile
@@ -784,5 +782,3 @@ export {
   SidebarTrigger,
   useSidebar,
 };
-
-    

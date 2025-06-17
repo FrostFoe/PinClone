@@ -1,4 +1,3 @@
-
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/supabase";
 
@@ -24,7 +23,7 @@ export function createSupabaseBrowserClient() {
     if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error(
         "Supabase URL or Anon Key is missing from environment variables. " +
-        "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.",
+          "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.",
       );
     }
     supabaseBrowserClient = createBrowserClient<Database>(
@@ -34,5 +33,3 @@ export function createSupabaseBrowserClient() {
   }
   return supabaseBrowserClient;
 }
-
-    

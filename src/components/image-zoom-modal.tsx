@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -176,10 +175,7 @@ export default function ImageZoomModal({
               sizes="90vw" // Provide sizes prop for responsive optimization
             />
           </div>
-          <DialogDescription
-            id="image-zoom-description"
-            className="sr-only"
-          >
+          <DialogDescription id="image-zoom-description" className="sr-only">
             Enlarged view of: {pin.title || "Image"}. Press escape to close.
           </DialogDescription>
         </div>
@@ -187,5 +183,3 @@ export default function ImageZoomModal({
     </Dialog>
   );
 }
-
-    

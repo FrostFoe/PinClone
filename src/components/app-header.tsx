@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -69,7 +68,8 @@ export default function AppHeader() {
           .eq("id", userId)
           .single();
 
-        if (profileError && profileError.code !== "PGRST116") { // PGRST116 means no rows found, which is fine if profile not created yet
+        if (profileError && profileError.code !== "PGRST116") {
+          // PGRST116 means no rows found, which is fine if profile not created yet
           console.error(
             "AppHeader: Supabase error fetching profile:",
             profileError.message,
@@ -99,7 +99,7 @@ export default function AppHeader() {
           setIsLoadingUser(false); // Ensure loading is false if no session
         }
         if (event === "SIGNED_OUT" || event === "USER_DELETED") {
-            router.refresh(); // Force refresh to update server components dependent on auth
+          router.refresh(); // Force refresh to update server components dependent on auth
         }
       },
     );
@@ -302,11 +302,12 @@ export default function AppHeader() {
                             @{currentUserProfile.username}
                           </p>
                         )}
-                        {currentUserEmail && !currentUserProfile?.username && ( // Show email if username not yet set
-                          <p className="text-xs text-muted-foreground truncate">
-                            {currentUserEmail}
-                          </p>
-                        )}
+                        {currentUserEmail &&
+                          !currentUserProfile?.username && ( // Show email if username not yet set
+                            <p className="text-xs text-muted-foreground truncate">
+                              {currentUserEmail}
+                            </p>
+                          )}
                       </div>
                     </div>
                   </DropdownMenuItem>
@@ -359,5 +360,3 @@ export default function AppHeader() {
     </header>
   );
 }
-
-    

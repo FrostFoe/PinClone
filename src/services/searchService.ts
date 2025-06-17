@@ -1,11 +1,9 @@
-
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Pin, Profile } from "@/types";
-import { mapSupabasePin } from "./pinService"; 
+import { mapSupabasePin } from "./pinService";
 import type { PinWithUploaderFromSupabase } from "@/types";
-
 
 export async function searchUsers(
   query: string,
@@ -17,21 +15,32 @@ export async function searchUsers(
   try {
     const { data, error, status, statusText } = await supabase
       .from("profiles")
-      .select("*") 
+      .select("*")
       // Search in username (case-insensitive) OR full_name (case-insensitive)
       .or(`username.ilike.%${query.trim()}%,full_name.ilike.%${query.trim()}%`)
       .limit(10); // Limit results for performance
 
     if (error) {
-      console.error("Error searching users:", { message: error.message, details: error.details, hint: error.hint, code: error.code, status, statusText });
+      console.error("Error searching users:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        status,
+        statusText,
+      });
       return { users: [], error: error.message };
     }
     return { users: data || [], error: null };
   } catch (e: any) {
-    console.error(
-      "Unexpected error in searchUsers:", { message: (e as Error).message, stack: (e as Error).stack },
-    );
-    return { users: [], error: "An unexpected error occurred during user search." };
+    console.error("Unexpected error in searchUsers:", {
+      message: (e as Error).message,
+      stack: (e as Error).stack,
+    });
+    return {
+      users: [],
+      error: "An unexpected error occurred during user search.",
+    };
   }
 }
 
@@ -74,32 +83,36 @@ export async function searchPins(
       // Use textSearch for FTS if available and configured, or fallback to ILIKE
       // For simplicity here, sticking to ILIKE for broad matching.
       // For more advanced search, consider using `rpc` to call a custom search function.
-      .or(`title.ilike.%${query.trim()}%,description.ilike.%${query.trim()}%`) 
+      .or(`title.ilike.%${query.trim()}%,description.ilike.%${query.trim()}%`)
       .order("created_at", { ascending: false })
       .range(from, to);
 
     if (error) {
-      console.error("Error searching pins:", { message: error.message, details: error.details, hint: error.hint, code: error.code, status, statusText });
+      console.error("Error searching pins:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        status,
+        statusText,
+      });
       return { pins: [], error: error.message };
     }
 
     const pins = data
       ? await Promise.all(
-          data.map((p) =>
-            mapSupabasePin(p as PinWithUploaderFromSupabase),
-          ),
+          data.map((p) => mapSupabasePin(p as PinWithUploaderFromSupabase)),
         )
       : [];
     return { pins, error: null };
   } catch (e: any) {
-    console.error(
-      "Unexpected error in searchPins:", { message: (e as Error).message, stack: (e as Error).stack },
-    );
+    console.error("Unexpected error in searchPins:", {
+      message: (e as Error).message,
+      stack: (e as Error).stack,
+    });
     return {
       pins: [],
       error: "An unexpected error occurred during pin search.",
     };
   }
 }
-
-    

@@ -24,8 +24,9 @@
 //    - After applying SQL changes, go to Supabase Dashboard -> API section -> Click "Reload schema".
 //
 // IF YOU ENCOUNTER "Bucket not found" ERRORS: You missed step 1.
-// IF YOU ENCOUNTER "new row violates row-level security policy" ERRORS: You missed step 2 or 3,
-// or your RLS policies for storage are not correctly applied.
+// IF YOU ENCOUNTER "new row violates row-level security policy" or "permission denied" ERRORS for storage:
+//   You missed step 2 or 3, or your RLS policies for storage are not correctly applied.
+//   Check the policies in `sql/schema.sql` for `storage.objects` related to the 'pins' bucket.
 // ==========================================================================================
 "use client";
 
@@ -151,7 +152,6 @@ export default function CreatePinPage() {
       img.src = URL.createObjectURL(file);
 
       return () => {
-        // Cleanup
         if (img.src.startsWith("blob:")) {
           URL.revokeObjectURL(img.src);
         }
@@ -168,7 +168,7 @@ export default function CreatePinPage() {
       !data.imageFile ||
       data.imageFile.length === 0 ||
       !imageDimensions ||
-      imageDimensions.width === 0 || 
+      imageDimensions.width === 0 ||
       imageDimensions.height === 0
     ) {
       toast({
@@ -184,42 +184,42 @@ export default function CreatePinPage() {
 
     const file = data.imageFile[0];
     const fileExt = file.name.split(".").pop();
-    const filePath = `public/${currentUser.id}/${Date.now()}.${fileExt}`; // Path within the bucket
+    const filePath = `public/${currentUser.id}/${Date.now()}.${fileExt}`; 
 
     try {
-      // Upload to 'pins' bucket
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("pins") // CRITICAL: This bucket MUST exist and have correct RLS policies.
+        .from("pins") 
         .upload(filePath, file, {
           cacheControl: "3600",
-          upsert: false, // Don't upsert, always new file path
+          upsert: false, 
           contentType: file.type,
         });
 
       setIsUploading(false);
       if (uploadError) {
-        // This will catch "Bucket not found" or RLS violations.
         console.error("Supabase storage upload error:", uploadError);
-        // Make error message more generic for user, but specific for dev console.
         let userMessage = "Image upload failed. Please try again.";
         if (uploadError.message.includes("Bucket not found")) {
-          userMessage = "Image upload failed: Bucket not found. Ensure 'pins' bucket exists and is public (or RLS configured).";
-        } else if (uploadError.message.includes("security policy")) {
-           userMessage = "Image upload failed: Permission denied. Please check storage security rules (RLS).";
+          userMessage =
+            "Image upload failed: Bucket not found. Ensure 'pins' bucket exists and is public (or RLS configured).";
+        } else if (uploadError.message.includes("security policy") || uploadError.message.includes("permission denied")) {
+          userMessage =
+            "Image upload failed: Permission denied. Please check storage security rules (RLS) for the 'pins' bucket in your Supabase dashboard (SQL Editor > `schema.sql`).";
         } else {
-           userMessage = `Image upload failed: ${uploadError.message}.`;
+          userMessage = `Image upload failed: ${uploadError.message}.`;
         }
         throw new Error(userMessage);
       }
-      
+
       if (!uploadData || !uploadData.path) {
-        // This case should ideally not happen if uploadError is null, but good to check.
-        throw new Error("Image upload succeeded but no path returned from storage.");
+        throw new Error(
+          "Image upload succeeded but no path returned from storage.",
+        );
       }
 
       const { data: urlData } = supabase.storage
         .from("pins")
-        .getPublicUrl(uploadData.path); // Use the path from uploadData
+        .getPublicUrl(uploadData.path);
       const imageUrl = urlData.publicUrl;
 
       const pinDetails = {
@@ -234,10 +234,11 @@ export default function CreatePinPage() {
         await createPin(pinDetails);
 
       if (createPinError || !createdPin) {
-        // Attempt to rollback storage upload if pin creation in DB fails
         await supabase.storage.from("pins").remove([uploadData.path]);
         console.error("Create pin service error:", createPinError);
-        throw new Error(createPinError || "Failed to save pin details to database.");
+        throw new Error(
+          createPinError || "Failed to save pin details to database.",
+        );
       }
 
       toast({
@@ -247,6 +248,7 @@ export default function CreatePinPage() {
       reset();
       setImagePreview(null);
       setImageDimensions(null);
+      router.refresh(); // Invalidate client-side cache for Server Components
       router.push(`/pin/${createdPin.id}`);
     } catch (error: any) {
       toast({
@@ -302,7 +304,7 @@ export default function CreatePinPage() {
                           <Image
                             src={imagePreview}
                             alt="Pin preview"
-                            fill 
+                            fill
                             sizes="(max-width: 1023px) 100vw, 50vw"
                             style={{ objectFit: "cover" }}
                             className="rounded-xl"
@@ -463,5 +465,3 @@ export default function CreatePinPage() {
     </main>
   );
 }
-
-    

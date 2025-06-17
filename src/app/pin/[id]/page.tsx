@@ -1,4 +1,3 @@
-
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { fetchPinById } from "@/services/pinService";
@@ -54,17 +53,21 @@ export async function generateMetadata({
 }
 
 // This is now a Server Component that renders the Client Component
-export default function PinDetailPageContainer({ params }: { params: { id: string }}) {
+export default function PinDetailPageContainer({
+  params,
+}: {
+  params: { id: string };
+}) {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col min-h-screen bg-background animate-fade-in items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading Pin Details...</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex flex-col min-h-screen bg-background animate-fade-in items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="mt-4 text-muted-foreground">Loading Pin Details...</p>
+        </div>
+      }
+    >
       <PinDetailClientContent params={params} />
     </Suspense>
   );
 }
-
-    
