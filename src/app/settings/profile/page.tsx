@@ -1,3 +1,20 @@
+// ==========================================================================================
+// !! CRITICAL SUPABASE SETUP FOR PROFILE AVATARS !!
+// ==========================================================================================
+// For profile avatar uploads to work, you MUST create a Supabase Storage bucket named 'avatars'.
+//
+// Steps:
+// 1. Go to your Supabase Project Dashboard.
+// 2. In the left sidebar, click on 'Storage'.
+// 3. Click the 'Create new bucket' button.
+// 4. For 'Bucket name', enter exactly: avatars (all lowercase)
+// 5. Toggle 'Public bucket' to ON. This allows images to be directly accessible via URL.
+//    (Alternatively, for private buckets, configure RLS policies: allow the owner to insert/update,
+//     allow everyone to select/read). For this app, public is simpler for avatars.
+// 6. Click 'Create bucket'.
+//
+// If this bucket is not created, avatar uploads will fail with a "Bucket not found" error.
+// ==========================================================================================
 "use client";
 
 import { useState, useEffect } from "react";
@@ -21,7 +38,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types";
 import {
   fetchProfileById,
-  updateProfile, // This service will now use upsert
+  updateProfile, 
   checkUsernameAvailability,
 } from "@/services/profileService";
 import type { TablesUpdate } from "@/types/supabase";
@@ -30,16 +47,13 @@ import type { User } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-// Function to generate a default username from email
 const generateDefaultUsername = (email: string): string => {
   const emailPrefix = email.split("@")[0];
-  // Replace invalid characters for username (e.g., keep alphanumeric, underscore, dot)
   let baseUsername = emailPrefix.replace(/[^a-zA-Z0-9_.]/g, "");
   if (baseUsername.length < 3) {
     baseUsername = `${baseUsername}user`;
   }
-  // The checkUsernameAvailability will handle if this + random is unique
-  return baseUsername.substring(0, 20); // Max length for username part
+  return baseUsername.substring(0, 20); 
 };
 
 export default function ProfileSettingsPage() {
@@ -56,7 +70,7 @@ export default function ProfileSettingsPage() {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [initialUsername, setInitialUsername] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
-  const [isInitialProfileLoad, setIsInitialProfileLoad] = useState(true); // Flag for first load
+  const [isInitialProfileLoad, setIsInitialProfileLoad] = useState(true); 
 
   useEffect(() => {
     const getUserAndProfile = async () => {
@@ -78,39 +92,34 @@ export default function ProfileSettingsPage() {
           setInitialUsername(profile.username || null);
         } else if (
           error === "Profile not found for this user ID." ||
-          error === "PGRST116"
+          error === "PGRST116" 
         ) {
-          // Profile doesn't exist, initialize userData for creation
           const defaultUsernameBase = user.email
             ? generateDefaultUsername(user.email)
             : `user${Date.now().toString().slice(-5)}`;
-          // We won't check availability here directly, let onBlur handle it
-          // or rely on the upsert to potentially fail if a truly random conflict occurs (rare)
-          // and then user can adjust.
-
+          
           setUserData({
             id: user.id,
-            username: defaultUsernameBase, // Prefill username
-            full_name: user.user_metadata?.full_name || "", // Prefill full_name from auth metadata
-            avatar_url: user.user_metadata?.avatar_url || null, // Prefill avatar from auth metadata
+            username: defaultUsernameBase, 
+            full_name: user.user_metadata?.full_name || "", 
+            avatar_url: user.user_metadata?.avatar_url || null, 
             bio: "",
             website: "",
           });
           setAvatarPreview(user.user_metadata?.avatar_url || null);
-          setInitialUsername(null); // Mark that this is essentially a new profile
+          setInitialUsername(null); 
           toast({
             title: "Complete Your Profile",
             description:
               "It looks like your profile is new. Please review and save your details.",
           });
         } else if (error) {
-          // Other errors
           toast({
             variant: "destructive",
             title: "Error fetching profile",
             description: error || "Could not load your profile data.",
           });
-          setUserData(null); // Explicitly set to null on error
+          setUserData(null); 
         }
       } else {
         toast({
@@ -163,7 +172,7 @@ export default function ProfileSettingsPage() {
     }
     const trimmedUsername = userData.username.trim();
     if (trimmedUsername === initialUsername && initialUsername !== null) {
-      setUsernameError(null); // Username is unchanged
+      setUsernameError(null); 
       return;
     }
     if (trimmedUsername.length < 3) {
@@ -205,7 +214,7 @@ export default function ProfileSettingsPage() {
     }
     if (
       userData.username.trim().length < 3 &&
-      userData.username.trim() !== initialUsername
+      userData.username.trim() !== initialUsername 
     ) {
       setUsernameError("Username must be at least 3 characters.");
       toast({
@@ -231,17 +240,18 @@ export default function ProfileSettingsPage() {
       const fileExt = avatarFile.name.split(".").pop();
       const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("avatars")
+        .from("avatars") // Critical: Ensure this 'avatars' bucket exists
         .upload(fileName, avatarFile, {
           upsert: true,
           contentType: avatarFile.type,
         });
 
       if (uploadError) {
+        console.error("Supabase storage upload error (avatars):", uploadError);
         toast({
           variant: "destructive",
           title: "Avatar Upload Failed",
-          description: uploadError.message,
+          description: `${uploadError.message}. Ensure 'avatars' bucket exists and is public.`,
         });
         setIsSaving(false);
         return;
@@ -253,9 +263,9 @@ export default function ProfileSettingsPage() {
     }
 
     const updates: TablesUpdate<"profiles"> = {
-      id: currentUserId, // Ensure ID is part of the updates for upsert
+      id: currentUserId, 
       full_name: userData.full_name?.trim() || null,
-      username: userData.username?.trim(), // Username should be mandatory
+      username: userData.username?.trim(), 
       bio: userData.bio?.trim() || null,
       website: userData.website?.trim() || null,
       avatar_url: avatarPublicUrl || null,
@@ -282,13 +292,12 @@ export default function ProfileSettingsPage() {
         setAvatarPreview(avatarPublicUrl);
       setAvatarFile(null);
       toast({ title: "Profile Saved Successfully!" });
-      router.refresh();
+      router.refresh(); 
     }
     setIsSaving(false);
   };
 
   if (isLoading || isInitialProfileLoad) {
-    // Show skeleton if initial load is true
     return (
       <main className="flex-grow container mx-auto px-4 py-8 animate-fade-in-up">
         <div className="max-w-3xl mx-auto">
@@ -308,7 +317,6 @@ export default function ProfileSettingsPage() {
   }
 
   if (!userData && !isLoading) {
-    // Handle case where userData is null after loading (e.g. severe error)
     return (
       <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center justify-center">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />

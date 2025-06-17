@@ -1,3 +1,20 @@
+// ==========================================================================================
+// !! CRITICAL SUPABASE SETUP FOR PIN CREATION !!
+// ==========================================================================================
+// For pin creation and image uploads to work, you MUST create a Supabase Storage bucket named 'pins'.
+//
+// Steps:
+// 1. Go to your Supabase Project Dashboard.
+// 2. In the left sidebar, click on 'Storage'.
+// 3. Click the 'Create new bucket' button.
+// 4. For 'Bucket name', enter exactly: pins (all lowercase)
+// 5. Toggle 'Public bucket' to ON. This allows images to be directly accessible via URL.
+//    (Alternatively, for private buckets, configure RLS policies: allow authenticated to insert,
+//     allow everyone to select/read). For this app, public is simpler.
+// 6. Click 'Create bucket'.
+//
+// If this bucket is not created, image uploads will fail with a "Bucket not found" error.
+// ==========================================================================================
 "use client";
 
 import { useState, useEffect } from "react";
@@ -139,7 +156,7 @@ export default function CreatePinPage() {
       !data.imageFile ||
       data.imageFile.length === 0 ||
       !imageDimensions ||
-      imageDimensions.width === 0 || // Ensure dimensions are valid
+      imageDimensions.width === 0 || 
       imageDimensions.height === 0
     ) {
       toast({
@@ -159,7 +176,7 @@ export default function CreatePinPage() {
 
     try {
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("pins")
+        .from("pins") // Critical: Ensure this 'pins' bucket exists in Supabase Storage
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
@@ -168,7 +185,9 @@ export default function CreatePinPage() {
 
       setIsUploading(false);
       if (uploadError) {
-        throw new Error(`Image upload failed: ${uploadError.message}`);
+        // This will catch "Bucket not found" if the 'pins' bucket doesn't exist.
+        console.error("Supabase storage upload error:", uploadError);
+        throw new Error(`Image upload failed: ${uploadError.message}. Ensure 'pins' bucket exists and is public.`);
       }
 
       const { data: urlData } = supabase.storage
@@ -188,8 +207,10 @@ export default function CreatePinPage() {
         await createPin(pinDetails);
 
       if (createPinError || !createdPin) {
+        // Attempt to rollback storage upload if pin creation in DB fails
         await supabase.storage.from("pins").remove([filePath]);
-        throw new Error(createPinError || "Failed to save pin details.");
+        console.error("Create pin service error:", createPinError);
+        throw new Error(createPinError || "Failed to save pin details to database.");
       }
 
       toast({
@@ -204,7 +225,7 @@ export default function CreatePinPage() {
       toast({
         variant: "destructive",
         title: "Creation Failed",
-        description: error.message,
+        description: error.message || "An unexpected error occurred.",
       });
     } finally {
       setIsSubmitting(false);
@@ -254,7 +275,7 @@ export default function CreatePinPage() {
                           <Image
                             src={imagePreview}
                             alt="Pin preview"
-                            fill // Use fill for aspect ratio container
+                            fill 
                             sizes="(max-width: 1023px) 100vw, 50vw"
                             style={{ objectFit: "cover" }}
                             className="rounded-xl"
