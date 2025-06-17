@@ -1,6 +1,7 @@
+
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server"; // Use server client for server actions
+import { createSupabaseServerClient } from "@/lib/supabase/server"; 
 import type { Pin, PinWithUploader } from "@/types";
 import type { TablesInsert } from "@/types/supabase";
 
@@ -17,7 +18,7 @@ function mapSupabasePin(supabasePin: PinWithUploader): Pin {
     height: supabasePin.height || 400,
     uploader: supabasePin.profiles
       ? {
-          username: supabasePin.profiles.username || "unknown",
+          username: supabasePin.profiles.username || "unknown_user", // Default username if null
           avatar_url: supabasePin.profiles.avatar_url,
           full_name: supabasePin.profiles.full_name,
         }
@@ -143,6 +144,15 @@ export async function createPin(
     return { pin: null, error: "User must be authenticated to create a pin." };
   }
 
+  // Check if user has a profile, this is a soft check. Pin creation shouldn't fail if profile is missing.
+  const { data: userProfileExists } = await supabase.from("profiles").select('id').eq('id', user.id).maybeSingle();
+  if (!userProfileExists) {
+    console.warn(`User ${user.id} is creating a pin but does not have a profile entry. Uploader info might be incomplete.`);
+    // We proceed with pin creation regardless, as the foreign key from pins to profiles is on user_id,
+    // and profile might be created later or uploader info might not be critical for pin itself.
+  }
+
+
   if (!pinData.image_url) {
     return { pin: null, error: "Image URL is required." };
   }
@@ -180,12 +190,19 @@ export async function createPin(
 
     if (data) {
       const createdPin = data as PinWithUploader;
+      // If profile info wasn't joined (e.g., profile created just after pin insert but before this select's transaction snapshot)
+      // or if the profile is still missing, we attempt one more fetch.
       if (!createdPin.profiles && user.id) {
-        const { data: profileData } = await supabase
+        const { data: profileData, error: profileFetchError } = await supabase
           .from("profiles")
           .select("username, avatar_url, full_name")
           .eq("id", user.id)
           .single();
+        
+        if (profileFetchError && profileFetchError.code !== 'PGRST116') {
+            // Log error if it's not simply "not found"
+            console.error("Error fetching profile details after pin creation for uploader display:", profileFetchError.message);
+        }
         if (profileData) {
           createdPin.profiles = profileData;
         }

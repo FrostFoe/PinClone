@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,28 +15,41 @@ import {
   Mail,
   Globe,
   Loader2,
-  Building2,
-  MapPin,
+  AlertTriangle,
 } from "lucide-react";
-// AppHeader is globally available
 import { useToast } from "@/hooks/use-toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types";
 import {
   fetchProfileById,
-  updateProfile,
+  updateProfile, // This service will now use upsert
   checkUsernameAvailability,
 } from "@/services/profileService";
 import type { TablesUpdate } from "@/types/supabase";
+import { Skeleton } from "@/components/ui/skeleton"; 
+import type { User } from "@supabase/supabase-js";
 
-export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+export const dynamic = 'force-dynamic'; 
+
+// Function to generate a default username from email
+const generateDefaultUsername = (email: string): string => {
+  const emailPrefix = email.split("@")[0];
+  // Replace invalid characters for username (e.g., keep alphanumeric, underscore, dot)
+  let baseUsername = emailPrefix.replace(/[^a-zA-Z0-9_.]/g, "");
+  if (baseUsername.length < 3) {
+    baseUsername = `${baseUsername}user`;
+  }
+  // The checkUsernameAvailability will handle if this + random is unique
+  return baseUsername.substring(0, 20); // Max length for username part
+};
+
 
 export default function ProfileSettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createSupabaseBrowserClient();
 
-  const [userData, setUserData] = useState<Partial<Profile>>({});
+  const [userData, setUserData] = useState<Partial<Profile> | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,27 +58,52 @@ export default function ProfileSettingsPage() {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [initialUsername, setInitialUsername] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [isInitialProfileLoad, setIsInitialProfileLoad] = useState(true); // Flag for first load
 
   useEffect(() => {
     const getUserAndProfile = async () => {
       setIsLoading(true);
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      
       if (session?.user) {
-        setCurrentUserId(session.user.id);
-        setCurrentUserEmail(session.user.email || null);
-        const { profile, error } = await fetchProfileById(session.user.id);
-        if (error && error !== "Profile not found for this user ID." && error !== "PGRST116") { // PGRST116 means no row found
+        const user = session.user;
+        setCurrentUserId(user.id);
+        setCurrentUserEmail(user.email || null);
+
+        const { profile, error } = await fetchProfileById(user.id);
+        
+        if (profile) {
+          setUserData(profile);
+          setAvatarPreview(profile.avatar_url || null);
+          setInitialUsername(profile.username || null);
+        } else if (error === "Profile not found for this user ID." || error === "PGRST116") {
+          // Profile doesn't exist, initialize userData for creation
+          const defaultUsernameBase = user.email ? generateDefaultUsername(user.email) : `user${Date.now().toString().slice(-5)}`;
+          // We won't check availability here directly, let onBlur handle it
+          // or rely on the upsert to potentially fail if a truly random conflict occurs (rare)
+          // and then user can adjust.
+
+          setUserData({
+            id: user.id,
+            username: defaultUsernameBase, // Prefill username
+            full_name: user.user_metadata?.full_name || "", // Prefill full_name from auth metadata
+            avatar_url: user.user_metadata?.avatar_url || null, // Prefill avatar from auth metadata
+            bio: "",
+            website: "",
+          });
+          setAvatarPreview(user.user_metadata?.avatar_url || null);
+          setInitialUsername(null); // Mark that this is essentially a new profile
+          toast({
+            title: "Complete Your Profile",
+            description: "It looks like your profile is new. Please review and save your details.",
+          });
+        } else if (error) { // Other errors
           toast({
             variant: "destructive",
             title: "Error fetching profile",
             description: error || "Could not load your profile data.",
           });
-        } else if (profile) {
-          setUserData(profile);
-          setAvatarPreview(profile.avatar_url || null);
-          setInitialUsername(profile.username || null);
+          setUserData(null); // Explicitly set to null on error
         }
       } else {
         toast({
@@ -75,6 +114,7 @@ export default function ProfileSettingsPage() {
         router.push("/login?next=/settings/profile");
       }
       setIsLoading(false);
+      setIsInitialProfileLoad(false);
     };
     getUserAndProfile();
   }, [supabase.auth, router, toast]);
@@ -83,9 +123,9 @@ export default function ProfileSettingsPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setUserData((prev) => ({ ...prev, [name]: value }));
+    setUserData((prev) => (prev ? { ...prev, [name]: value } : null));
     if (name === "username") {
-      setUsernameError(null);
+      setUsernameError(null); 
     }
   };
 
@@ -93,7 +133,6 @@ export default function ProfileSettingsPage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > 2 * 1024 * 1024) {
-        // 2MB limit
         toast({
           variant: "destructive",
           title: "File too large",
@@ -111,54 +150,54 @@ export default function ProfileSettingsPage() {
   };
 
   const handleUsernameBlur = async () => {
-    if (userData.username && userData.username.trim() !== initialUsername) {
-      setIsSaving(true); // Show loader for username check
-      const { available, error } = await checkUsernameAvailability(
-        userData.username.trim(),
-      );
-      if (error) {
-        setUsernameError(error);
-      } else if (!available) {
-        setUsernameError("This username is already taken.");
-      } else {
-        setUsernameError(null);
-      }
-      setIsSaving(false);
-    } else if (
-      userData.username &&
-      userData.username.trim() === initialUsername
-    ) {
-      setUsernameError(null); // Clear error if username is back to initial
-    } else if (!userData.username || userData.username.trim().length === 0) {
+    if (!userData || !userData.username) {
       setUsernameError("Username cannot be empty.");
+      return;
     }
+    const trimmedUsername = userData.username.trim();
+    if (trimmedUsername === initialUsername && initialUsername !== null) {
+       setUsernameError(null); // Username is unchanged
+       return;
+    }
+     if (trimmedUsername.length < 3) {
+      setUsernameError("Username must be at least 3 characters.");
+      return;
+    }
+
+    setIsSaving(true); 
+    const { available, error } = await checkUsernameAvailability(trimmedUsername);
+    if (error) {
+      setUsernameError(error);
+    } else if (!available) {
+      setUsernameError("This username is already taken.");
+    } else {
+      setUsernameError(null);
+    }
+    setIsSaving(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUserId) {
+    if (!currentUserId || !userData) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "User session not found.",
+        description: "User session not found or user data is missing.",
       });
       return;
     }
     if (!userData.username || userData.username.trim().length === 0) {
       setUsernameError("Username cannot be empty.");
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Username cannot be empty.",
-      });
+      toast({ variant: "destructive", title: "Validation Error", description: "Username cannot be empty." });
+      return;
+    }
+     if (userData.username.trim().length < 3 && userData.username.trim() !== initialUsername) {
+      setUsernameError("Username must be at least 3 characters.");
+      toast({ variant: "destructive", title: "Validation Error", description: "Username must be at least 3 characters." });
       return;
     }
     if (usernameError) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: usernameError,
-      });
+      toast({ variant: "destructive", title: "Validation Error", description: usernameError });
       return;
     }
 
@@ -167,66 +206,51 @@ export default function ProfileSettingsPage() {
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split(".").pop();
-      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`; // Ensure unique path per user.
+      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("avatars") // Ensure you have an 'avatars' bucket in Supabase Storage
+        .from("avatars")
         .upload(fileName, avatarFile, {
-          upsert: true, // Use upsert to overwrite if user uploads new avatar with same conventional name
+          upsert: true,
           contentType: avatarFile.type,
         });
 
       if (uploadError) {
-        toast({
-          variant: "destructive",
-          title: "Avatar Upload Failed",
-          description: uploadError.message,
-        });
+        toast({ variant: "destructive", title: "Avatar Upload Failed", description: uploadError.message });
         setIsSaving(false);
         return;
       }
-      // Get public URL (ensure RLS allows public read or create signed URL for private)
-      const { data: urlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(uploadData.path);
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(uploadData.path);
       avatarPublicUrl = urlData.publicUrl;
     }
 
     const updates: TablesUpdate<"profiles"> = {
+      id: currentUserId, // Ensure ID is part of the updates for upsert
       full_name: userData.full_name?.trim() || null,
-      username: userData.username?.trim() || null, // Username should be mandatory from trigger
+      username: userData.username?.trim(), // Username should be mandatory
       bio: userData.bio?.trim() || null,
       website: userData.website?.trim() || null,
       avatar_url: avatarPublicUrl || null,
     };
 
-    const filteredUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([_, v]) => v !== undefined),
-    );
-
-    const { profile, error: updateError } = await updateProfile(
-      currentUserId,
-      filteredUpdates,
-    );
+    const { profile: updatedProfile, error: updateError } = await updateProfile(currentUserId, updates);
 
     if (updateError) {
-      toast({
-        variant: "destructive",
-        title: "Profile Update Failed",
-        description: updateError,
-      });
-    } else if (profile) {
-      setUserData(profile);
-      setInitialUsername(profile.username || null); // Update initialUsername after successful save
-      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url)
-        setAvatarPreview(avatarPublicUrl);
+      toast({ variant: "destructive", title: "Profile Update Failed", description: updateError });
+      if (updateError === "This username is already taken.") {
+        setUsernameError(updateError);
+      }
+    } else if (updatedProfile) {
+      setUserData(updatedProfile);
+      setInitialUsername(updatedProfile.username || null); 
+      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url) setAvatarPreview(avatarPublicUrl);
       setAvatarFile(null);
-      toast({ title: "Profile Updated Successfully!" });
-      router.refresh(); // Refresh server components if any depend on this
+      toast({ title: "Profile Saved Successfully!" });
+      router.refresh(); 
     }
     setIsSaving(false);
   };
 
-  if (isLoading) {
+  if (isLoading || isInitialProfileLoad) { // Show skeleton if initial load is true
     return (
       <main className="flex-grow container mx-auto px-4 py-8 animate-fade-in-up">
         <div className="max-w-3xl mx-auto">
@@ -244,6 +268,18 @@ export default function ProfileSettingsPage() {
       </main>
     );
   }
+
+  if (!userData && !isLoading) { // Handle case where userData is null after loading (e.g. severe error)
+     return (
+      <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center justify-center">
+        <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
+        <h2 className="text-xl font-semibold text-destructive">Could not load profile data</h2>
+        <p className="text-muted-foreground">Please try again later or contact support.</p>
+         <Button onClick={() => router.push('/')} className="mt-6">Go to Homepage</Button>
+      </main>
+    );
+  }
+
 
   return (
     <main className="flex-grow container mx-auto px-4 py-8 animate-fade-in-up">
@@ -270,13 +306,13 @@ export default function ProfileSettingsPage() {
                 <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-secondary">
                   <AvatarImage
                     src={avatarPreview || undefined}
-                    alt={userData.full_name || userData.username || "User"}
+                    alt={userData?.full_name || userData?.username || "User"}
                     data-ai-hint="profile avatar large settings"
                   />
                   <AvatarFallback className="text-4xl">
-                    {userData.full_name?.[0]?.toUpperCase() ||
-                      userData.username?.[0]?.toUpperCase() ||
-                      "U"}
+                    {userData?.full_name?.[0]?.toUpperCase() ||
+                      userData?.username?.[0]?.toUpperCase() ||
+                      currentUserEmail?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <Button
@@ -284,9 +320,7 @@ export default function ProfileSettingsPage() {
                   size="icon"
                   variant="secondary"
                   className="absolute bottom-0 right-0 rounded-full h-10 w-10 border-2 border-card shadow-md hover:bg-muted focus-ring"
-                  onClick={() =>
-                    document.getElementById("avatarUpload")?.click()
-                  }
+                  onClick={() => document.getElementById("avatarUpload")?.click()}
                   aria-label="Change profile picture"
                   disabled={isSaving}
                 >
@@ -306,9 +340,7 @@ export default function ProfileSettingsPage() {
                   type="button"
                   variant="outline"
                   className="rounded-full focus-ring"
-                  onClick={() =>
-                    document.getElementById("avatarUpload")?.click()
-                  }
+                  onClick={() => document.getElementById("avatarUpload")?.click()}
                   disabled={isSaving}
                 >
                   Upload New Picture
@@ -337,7 +369,7 @@ export default function ProfileSettingsPage() {
                   <Input
                     id="full_name"
                     name="full_name"
-                    value={userData.full_name || ""}
+                    value={userData?.full_name || ""}
                     onChange={handleChange}
                     className="pl-10 h-11 focus-ring"
                     placeholder="E.g. Jane Doe"
@@ -359,7 +391,7 @@ export default function ProfileSettingsPage() {
                   <Input
                     id="username"
                     name="username"
-                    value={userData.username || ""}
+                    value={userData?.username || ""}
                     onChange={handleChange}
                     onBlur={handleUsernameBlur}
                     className={`pl-7 h-11 focus-ring ${usernameError ? "border-destructive focus-visible:ring-destructive" : ""}`}
@@ -377,6 +409,9 @@ export default function ProfileSettingsPage() {
                     {usernameError}
                   </p>
                 )}
+                 {!usernameError && userData?.username && userData.username.trim().length > 0 && userData.username.trim().length < 3 && (
+                   <p className="text-xs text-destructive mt-1">Username must be at least 3 characters.</p>
+                 )}
               </div>
               <div className="md:col-span-2">
                 <Label
@@ -388,7 +423,7 @@ export default function ProfileSettingsPage() {
                 <Textarea
                   id="bio"
                   name="bio"
-                  value={userData.bio || ""}
+                  value={userData?.bio || ""}
                   onChange={handleChange}
                   rows={3}
                   className="mt-1 focus-ring"
@@ -413,7 +448,7 @@ export default function ProfileSettingsPage() {
                     id="website"
                     name="website"
                     type="url"
-                    value={userData.website || ""}
+                    value={userData?.website || ""}
                     onChange={handleChange}
                     className="pl-10 h-11 focus-ring"
                     placeholder="https://yourwebsite.com"
@@ -449,8 +484,7 @@ export default function ProfileSettingsPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Your email is not shown on your public profile. Contact support
-                to change it.
+                Your email is not shown on your public profile. Contact support to change it.
               </p>
             </div>
           </section>
@@ -469,7 +503,7 @@ export default function ProfileSettingsPage() {
               type="submit"
               size="lg"
               className="rounded-full px-8 bg-primary hover:bg-primary/90 focus-ring"
-              disabled={isSaving || !!usernameError}
+              disabled={isSaving || !!usernameError || (userData?.username && userData.username.trim().length < 3 && userData.username.trim() !== initialUsername) }
             >
               {isSaving ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
