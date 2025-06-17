@@ -1,4 +1,3 @@
-
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -18,15 +17,22 @@ export async function fetchProfileByUsername(
       .single();
 
     if (error) {
-      if (error.code === "PGRST116") { // "PGRST116" implies 0 rows returned, which is expected for "not found"
+      if (error.code === "PGRST116") {
+        // "PGRST116" implies 0 rows returned, which is expected for "not found"
         return { profile: null, error: "Profile not found." };
       }
-      console.error(`Error fetching profile by username "${username}":`, error.message);
+      console.error(
+        `Error fetching profile by username "${username}":`,
+        error.message,
+      );
       return { profile: null, error: error.message };
     }
     return { profile: data, error: null };
   } catch (e: any) {
-    console.error("Unexpected error in fetchProfileByUsername:", (e as Error).message);
+    console.error(
+      "Unexpected error in fetchProfileByUsername:",
+      (e as Error).message,
+    );
     return { profile: null, error: "An unexpected error occurred." };
   }
 }
@@ -52,7 +58,10 @@ export async function fetchProfileById(
     }
     return { profile: data, error: null };
   } catch (e: any) {
-    console.error("Unexpected error in fetchProfileById:", (e as Error).message);
+    console.error(
+      "Unexpected error in fetchProfileById:",
+      (e as Error).message,
+    );
     return { profile: null, error: "An unexpected error occurred." };
   }
 }
@@ -72,16 +81,20 @@ export async function updateProfile(
       return { profile: null, error: "Username cannot be empty." };
     }
     if (updates.username.trim().length < 3) {
-      return { profile: null, error: "Username must be at least 3 characters." };
+      return {
+        profile: null,
+        error: "Username must be at least 3 characters.",
+      };
     }
     updates.username = updates.username.trim(); // Use trimmed username
   }
-  
-  // Trim other string fields if they are provided
-  if (updates.full_name !== undefined) updates.full_name = updates.full_name?.trim() || null;
-  if (updates.bio !== undefined) updates.bio = updates.bio?.trim() || null;
-  if (updates.website !== undefined) updates.website = updates.website?.trim() || null;
 
+  // Trim other string fields if they are provided
+  if (updates.full_name !== undefined)
+    updates.full_name = updates.full_name?.trim() || null;
+  if (updates.bio !== undefined) updates.bio = updates.bio?.trim() || null;
+  if (updates.website !== undefined)
+    updates.website = updates.website?.trim() || null;
 
   const profileDataForUpsert: TablesInsert<"profiles"> = {
     id: userId,
@@ -94,14 +107,16 @@ export async function updateProfile(
     ...(updates.bio !== undefined && { bio: updates.bio }),
     ...(updates.website !== undefined && { website: updates.website }),
   };
-  
+
   // Remove undefined keys from profileDataForUpsert to avoid issues with Supabase client
-  Object.keys(profileDataForUpsert).forEach(key => {
-    if (profileDataForUpsert[key as keyof typeof profileDataForUpsert] === undefined) {
+  Object.keys(profileDataForUpsert).forEach((key) => {
+    if (
+      profileDataForUpsert[key as keyof typeof profileDataForUpsert] ===
+      undefined
+    ) {
       delete profileDataForUpsert[key as keyof typeof profileDataForUpsert];
     }
   });
-
 
   try {
     const { data, error } = await supabase
@@ -111,8 +126,14 @@ export async function updateProfile(
       .single();
 
     if (error) {
-      console.error(`Error upserting profile for user "${userId}":`, error.message);
-      if (error.message.includes("profiles_username_key") || error.message.includes("profiles_username_idx")) {
+      console.error(
+        `Error upserting profile for user "${userId}":`,
+        error.message,
+      );
+      if (
+        error.message.includes("profiles_username_key") ||
+        error.message.includes("profiles_username_idx")
+      ) {
         return { profile: null, error: "This username is already taken." };
       }
       return { profile: null, error: error.message };
@@ -143,12 +164,18 @@ export async function checkUsernameAvailability(
       .maybeSingle();
 
     if (error) {
-      console.error(`Error checking username availability for "${trimmedUsername}":`, error.message);
+      console.error(
+        `Error checking username availability for "${trimmedUsername}":`,
+        error.message,
+      );
       return { available: false, error: error.message };
     }
     return { available: !data, error: null }; // True if no data (username not found, so available)
   } catch (e: any) {
-    console.error("Unexpected error in checkUsernameAvailability:", (e as Error).message);
+    console.error(
+      "Unexpected error in checkUsernameAvailability:",
+      (e as Error).message,
+    );
     return {
       available: false,
       error: "An unexpected error occurred while checking username.",

@@ -1,4 +1,3 @@
-
 export interface Profile {
   id: string;
   username: string | null; // Should become non-null after initial setup via trigger

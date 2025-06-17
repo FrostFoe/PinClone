@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -10,11 +9,11 @@ import PincloneLogo from "@/components/pinclone-logo";
 import { User, Mail, Lock, FileSignature, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { signUpWithEmail } from "@/services/authService"; 
-import { signInWithOAuthBrowser } from "@/lib/auth/client"; 
+import { signUpWithEmail } from "@/services/authService";
+import { signInWithOAuthBrowser } from "@/lib/auth/client";
 
 // This tells Next.js to render this page dynamically at request time.
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
@@ -24,7 +23,7 @@ const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function SignupPage() {
   const router = useRouter();
-  const searchParams = useSearchParams(); 
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const [fullName, setFullName] = useState("");
@@ -46,16 +45,17 @@ export default function SignupPage() {
       toast({
         variant: "destructive",
         title: "Signup Failed",
-        description: error.message || "Could not create your account. Please try again.",
+        description:
+          error.message || "Could not create your account. Please try again.",
       });
-    } else if (user && !session) { 
+    } else if (user && !session) {
       toast({
         title: "Signup Almost Complete!",
         description: "Please check your email to confirm your account.",
       });
-      router.push("/login?message=confirmation_pending"); 
-    } else if (user && session) { 
-       toast({
+      router.push("/login?message=confirmation_pending");
+    } else if (user && session) {
+      toast({
         title: "Signup Successful!",
         description: "Welcome! You're being logged in...",
       });
@@ -64,20 +64,25 @@ export default function SignupPage() {
       toast({
         variant: "destructive",
         title: "Signup Issue",
-        description: "An unexpected issue occurred during signup. Please try again.",
+        description:
+          "An unexpected issue occurred during signup. Please try again.",
       });
     }
   };
 
   const handleGitHubSignup = async () => {
     setIsGitHubLoading(true);
-    const nextUrl = searchParams.get('next');
-    const { error } = await signInWithOAuthBrowser('github', nextUrl || undefined);
+    const nextUrl = searchParams.get("next");
+    const { error } = await signInWithOAuthBrowser(
+      "github",
+      nextUrl || undefined,
+    );
     if (error) {
       toast({
         variant: "destructive",
         title: "GitHub Sign-Up Failed",
-        description: error.message || "Could not sign up with GitHub. Please try again.",
+        description:
+          error.message || "Could not sign up with GitHub. Please try again.",
       });
       setIsGitHubLoading(false);
     }
@@ -100,10 +105,7 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-6 p-8 bg-card shadow-xl rounded-2xl">
-          <form
-            onSubmit={handleEmailSignup}
-            className="space-y-6"
-          >
+          <form onSubmit={handleEmailSignup} className="space-y-6">
             <div>
               <Label htmlFor="fullName" className="text-foreground/80">
                 Full Name
@@ -112,7 +114,7 @@ export default function SignupPage() {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="fullName"
-                  name="fullName" 
+                  name="fullName"
                   type="text"
                   autoComplete="name"
                   required
@@ -133,7 +135,7 @@ export default function SignupPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="email"
-                  name="email" 
+                  name="email"
                   type="email"
                   autoComplete="email"
                   required
@@ -154,7 +156,7 @@ export default function SignupPage() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="password"
-                  name="password" 
+                  name="password"
                   type="password"
                   autoComplete="new-password"
                   required
@@ -172,7 +174,13 @@ export default function SignupPage() {
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 focus-ring"
-                disabled={isLoading || isGitHubLoading || !email || !password || !fullName}
+                disabled={
+                  isLoading ||
+                  isGitHubLoading ||
+                  !email ||
+                  !password ||
+                  !fullName
+                }
               >
                 {isLoading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -183,7 +191,7 @@ export default function SignupPage() {
               </Button>
             </div>
           </form>
-          
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -211,7 +219,7 @@ export default function SignupPage() {
               {isGitHubLoading ? "Redirecting..." : "GitHub"}
             </Button>
           </div>
-             <p className="text-xs text-muted-foreground text-center pt-2">
+          <p className="text-xs text-muted-foreground text-center pt-2">
             By signing up, you agree to our{" "}
             <Link href="/terms" className="underline hover:text-primary">
               Terms of Service

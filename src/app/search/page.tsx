@@ -1,11 +1,12 @@
-
 import { Suspense } from "react";
-import SearchUI, { SearchPageSkeleton as SearchUIInternalSkeleton } from "./SearchUI"; // Renamed import
+import SearchUI, {
+  SearchPageSkeleton as SearchUIInternalSkeleton,
+} from "./SearchUI"; // Renamed import
 import { Skeleton } from "@/components/ui/skeleton"; // Use the global Skeleton
 
 // This tells Next.js to render this page dynamically at request time,
 // preventing issues with prerendering a page that depends on runtime search params.
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default function SearchPage() {
   return (

@@ -1,23 +1,22 @@
-
 import type { Metadata, Viewport } from "next";
-import { Suspense } from 'react';
+import { Suspense } from "react";
 import AppClientLayout from "./app-client-layout";
 import "./globals.css";
-import { Loader2 } from 'lucide-react';
-import { Poppins, PT_Sans } from 'next/font/google';
+import { Loader2 } from "lucide-react";
+import { Poppins, PT_Sans } from "next/font/google";
 
 const poppins = Poppins({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-poppins',
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-poppins",
 });
 
 const ptSans = PT_Sans({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400', '700'],
-  variable: '--font-pt-sans',
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "700"],
+  variable: "--font-pt-sans",
 });
 
 export const metadata: Metadata = {
@@ -64,7 +63,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${ptSans.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${poppins.variable} ${ptSans.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/* Removed direct Google Font links, next/font handles this */}
       </head>

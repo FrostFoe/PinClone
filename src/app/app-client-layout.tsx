@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from "react";
@@ -44,7 +43,6 @@ const PUBLIC_ROUTES_WITH_AUTH_CONTENT = ["/", "/search"];
 const PIN_DETAIL_REGEX = /^\/pin\/[a-zA-Z0-9-]+$/;
 const USER_PROFILE_REGEX = /^\/u\/[a-zA-Z0-9_.-]+$/;
 
-
 export default function AppClientLayout({
   children,
 }: Readonly<{
@@ -62,7 +60,6 @@ export default function AppClientLayout({
   const isProtectedRoute = PROTECTED_ROUTES.includes(pathname);
   const isPublicOnlyRoute = PUBLIC_ONLY_ROUTES.includes(pathname);
 
-
   useEffect(() => {
     const {
       data: { subscription: authListener },
@@ -73,18 +70,27 @@ export default function AppClientLayout({
 
       // Refresh server components that might depend on auth state
       // This is important after login/logout for UI to update correctly
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+      if (
+        event === "SIGNED_IN" ||
+        event === "SIGNED_OUT" ||
+        event === "USER_UPDATED" ||
+        event === "TOKEN_REFRESHED"
+      ) {
         router.refresh();
       }
     });
 
     // Initial session check
-    supabase.auth.getSession()
+    supabase.auth
+      .getSession()
       .then(({ data: { session } }) => {
         setCurrentUser(session?.user ?? null);
       })
       .catch((error) => {
-        console.error("Error getting initial session in AppClientLayout:", error);
+        console.error(
+          "Error getting initial session in AppClientLayout:",
+          error,
+        );
         setCurrentUser(null); // Ensure currentUser is null if session fetch fails
       })
       .finally(() => {
@@ -96,7 +102,6 @@ export default function AppClientLayout({
     };
   }, [supabase, router]);
 
-
   useEffect(() => {
     if (isLoadingAuth) return; // Don't run redirect logic until auth state is known
 
@@ -104,7 +109,7 @@ export default function AppClientLayout({
       // User is logged in
       if (isPublicOnlyRoute) {
         // If logged in and on a public-only page (login/signup), redirect to home
-        const nextUrl = searchParams.get('next') || '/';
+        const nextUrl = searchParams.get("next") || "/";
         router.push(nextUrl);
       }
     } else {
@@ -112,33 +117,45 @@ export default function AppClientLayout({
       if (isProtectedRoute) {
         // If not logged in and on a protected route, redirect to login
         // Preserve the intended destination via 'next' query param
-        const redirectTo = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
+        const redirectTo =
+          pathname +
+          (searchParams.toString() ? `?${searchParams.toString()}` : "");
         router.push(`/login?next=${encodeURIComponent(redirectTo)}`);
       }
     }
-  }, [currentUser, isLoadingAuth, pathname, router, searchParams, isProtectedRoute, isPublicOnlyRoute]);
+  }, [
+    currentUser,
+    isLoadingAuth,
+    pathname,
+    router,
+    searchParams,
+    isProtectedRoute,
+    isPublicOnlyRoute,
+  ]);
 
   // Display error/message toasts from URL params (e.g., after OAuth redirect)
   useEffect(() => {
-    const error = searchParams.get('error');
-    const message = searchParams.get('message');
+    const error = searchParams.get("error");
+    const message = searchParams.get("message");
     if (error) {
       toast({
         variant: "destructive",
-        title: decodeURIComponent(error).replace(/-/g, ' '),
-        description: message ? decodeURIComponent(message).replace(/-/g, ' ') : "An unexpected error occurred.",
+        title: decodeURIComponent(error).replace(/-/g, " "),
+        description: message
+          ? decodeURIComponent(message).replace(/-/g, " ")
+          : "An unexpected error occurred.",
       });
       // Clean up URL params by replacing the current entry in history
       router.replace(pathname, { scroll: false });
-    } else if (message && message === 'confirmation_pending') {
-       toast({
+    } else if (message && message === "confirmation_pending") {
+      toast({
         title: "Signup Almost Complete!",
-        description: "We've sent a confirmation link to your email. Please check your inbox (and spam folder) to verify your account.",
+        description:
+          "We've sent a confirmation link to your email. Please check your inbox (and spam folder) to verify your account.",
       });
       router.replace(pathname, { scroll: false });
     }
   }, [searchParams, toast, router, pathname]);
-
 
   const navItems = [
     { href: "/", label: "Home", icon: Home, exact: true },
@@ -163,7 +180,8 @@ export default function AppClientLayout({
 
   const isNotFoundPage = pathname === "/not-found";
 
-  if (isLoadingAuth && !currentUser) { // Show full page loader only on initial load if no user yet
+  if (isLoadingAuth && !currentUser) {
+    // Show full page loader only on initial load if no user yet
     return (
       <>
         <div className="flex items-center justify-center min-h-screen bg-background">
@@ -173,20 +191,20 @@ export default function AppClientLayout({
       </>
     );
   }
-  
+
   if (isAuthRoute || isNotFoundPage) {
     // For login/signup/not-found pages, render children directly without main layout
     // unless user is already logged in and on login/signup, in which case redirect handled above.
     if (currentUser && isAuthRoute) {
-       // Still loading auth or redirecting, show loader
-        return (
-          <>
-            <div className="flex items-center justify-center min-h-screen bg-background">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            </div>
-            <Toaster />
-          </>
-        );
+      // Still loading auth or redirecting, show loader
+      return (
+        <>
+          <div className="flex items-center justify-center min-h-screen bg-background">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          </div>
+          <Toaster />
+        </>
+      );
     }
     return (
       <>
@@ -195,7 +213,6 @@ export default function AppClientLayout({
       </>
     );
   }
-
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -219,13 +236,13 @@ export default function AppClientLayout({
             {navItems.map((item) => {
               // Auth check for item visibility
               if (item.authRequired && !currentUser) return null;
-              
+
               const isActive = item.exact
                 ? pathname === item.href
                 : pathname.startsWith(item.href);
               return (
                 <SidebarMenuItem key={item.href}>
-                   <SidebarMenuButton
+                  <SidebarMenuButton
                     asChild
                     tooltip={{
                       children: item.label,

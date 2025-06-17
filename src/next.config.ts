@@ -1,4 +1,3 @@
-
 import type { NextConfig } from "next";
 
 let supabaseImagePattern: any = undefined;
@@ -14,7 +13,7 @@ try {
   }
 } catch (error) {
   console.warn(
-    `Warning: Could not parse NEXT_PUBLIC_SUPABASE_URL ('${process.env.NEXT_PUBLIC_SUPABASE_URL}') for image optimization. Supabase image remote pattern will not be configured. Error: ${(error as Error).message}`
+    `Warning: Could not parse NEXT_PUBLIC_SUPABASE_URL ('${process.env.NEXT_PUBLIC_SUPABASE_URL}') for image optimization. Supabase image remote pattern will not be configured. Error: ${(error as Error).message}`,
   );
 }
 

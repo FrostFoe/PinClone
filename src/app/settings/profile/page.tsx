@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -26,10 +25,10 @@ import {
   checkUsernameAvailability,
 } from "@/services/profileService";
 import type { TablesUpdate } from "@/types/supabase";
-import { Skeleton } from "@/components/ui/skeleton"; 
+import { Skeleton } from "@/components/ui/skeleton";
 import type { User } from "@supabase/supabase-js";
 
-export const dynamic = 'force-dynamic'; 
+export const dynamic = "force-dynamic";
 
 // Function to generate a default username from email
 const generateDefaultUsername = (email: string): string => {
@@ -42,7 +41,6 @@ const generateDefaultUsername = (email: string): string => {
   // The checkUsernameAvailability will handle if this + random is unique
   return baseUsername.substring(0, 20); // Max length for username part
 };
-
 
 export default function ProfileSettingsPage() {
   const router = useRouter();
@@ -63,22 +61,29 @@ export default function ProfileSettingsPage() {
   useEffect(() => {
     const getUserAndProfile = async () => {
       setIsLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (session?.user) {
         const user = session.user;
         setCurrentUserId(user.id);
         setCurrentUserEmail(user.email || null);
 
         const { profile, error } = await fetchProfileById(user.id);
-        
+
         if (profile) {
           setUserData(profile);
           setAvatarPreview(profile.avatar_url || null);
           setInitialUsername(profile.username || null);
-        } else if (error === "Profile not found for this user ID." || error === "PGRST116") {
+        } else if (
+          error === "Profile not found for this user ID." ||
+          error === "PGRST116"
+        ) {
           // Profile doesn't exist, initialize userData for creation
-          const defaultUsernameBase = user.email ? generateDefaultUsername(user.email) : `user${Date.now().toString().slice(-5)}`;
+          const defaultUsernameBase = user.email
+            ? generateDefaultUsername(user.email)
+            : `user${Date.now().toString().slice(-5)}`;
           // We won't check availability here directly, let onBlur handle it
           // or rely on the upsert to potentially fail if a truly random conflict occurs (rare)
           // and then user can adjust.
@@ -95,9 +100,11 @@ export default function ProfileSettingsPage() {
           setInitialUsername(null); // Mark that this is essentially a new profile
           toast({
             title: "Complete Your Profile",
-            description: "It looks like your profile is new. Please review and save your details.",
+            description:
+              "It looks like your profile is new. Please review and save your details.",
           });
-        } else if (error) { // Other errors
+        } else if (error) {
+          // Other errors
           toast({
             variant: "destructive",
             title: "Error fetching profile",
@@ -125,7 +132,7 @@ export default function ProfileSettingsPage() {
     const { name, value } = e.target;
     setUserData((prev) => (prev ? { ...prev, [name]: value } : null));
     if (name === "username") {
-      setUsernameError(null); 
+      setUsernameError(null);
     }
   };
 
@@ -156,16 +163,17 @@ export default function ProfileSettingsPage() {
     }
     const trimmedUsername = userData.username.trim();
     if (trimmedUsername === initialUsername && initialUsername !== null) {
-       setUsernameError(null); // Username is unchanged
-       return;
+      setUsernameError(null); // Username is unchanged
+      return;
     }
-     if (trimmedUsername.length < 3) {
+    if (trimmedUsername.length < 3) {
       setUsernameError("Username must be at least 3 characters.");
       return;
     }
 
-    setIsSaving(true); 
-    const { available, error } = await checkUsernameAvailability(trimmedUsername);
+    setIsSaving(true);
+    const { available, error } =
+      await checkUsernameAvailability(trimmedUsername);
     if (error) {
       setUsernameError(error);
     } else if (!available) {
@@ -188,16 +196,31 @@ export default function ProfileSettingsPage() {
     }
     if (!userData.username || userData.username.trim().length === 0) {
       setUsernameError("Username cannot be empty.");
-      toast({ variant: "destructive", title: "Validation Error", description: "Username cannot be empty." });
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Username cannot be empty.",
+      });
       return;
     }
-     if (userData.username.trim().length < 3 && userData.username.trim() !== initialUsername) {
+    if (
+      userData.username.trim().length < 3 &&
+      userData.username.trim() !== initialUsername
+    ) {
       setUsernameError("Username must be at least 3 characters.");
-      toast({ variant: "destructive", title: "Validation Error", description: "Username must be at least 3 characters." });
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Username must be at least 3 characters.",
+      });
       return;
     }
     if (usernameError) {
-      toast({ variant: "destructive", title: "Validation Error", description: usernameError });
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: usernameError,
+      });
       return;
     }
 
@@ -215,11 +238,17 @@ export default function ProfileSettingsPage() {
         });
 
       if (uploadError) {
-        toast({ variant: "destructive", title: "Avatar Upload Failed", description: uploadError.message });
+        toast({
+          variant: "destructive",
+          title: "Avatar Upload Failed",
+          description: uploadError.message,
+        });
         setIsSaving(false);
         return;
       }
-      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(uploadData.path);
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(uploadData.path);
       avatarPublicUrl = urlData.publicUrl;
     }
 
@@ -232,25 +261,34 @@ export default function ProfileSettingsPage() {
       avatar_url: avatarPublicUrl || null,
     };
 
-    const { profile: updatedProfile, error: updateError } = await updateProfile(currentUserId, updates);
+    const { profile: updatedProfile, error: updateError } = await updateProfile(
+      currentUserId,
+      updates,
+    );
 
     if (updateError) {
-      toast({ variant: "destructive", title: "Profile Update Failed", description: updateError });
+      toast({
+        variant: "destructive",
+        title: "Profile Update Failed",
+        description: updateError,
+      });
       if (updateError === "This username is already taken.") {
         setUsernameError(updateError);
       }
     } else if (updatedProfile) {
       setUserData(updatedProfile);
-      setInitialUsername(updatedProfile.username || null); 
-      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url) setAvatarPreview(avatarPublicUrl);
+      setInitialUsername(updatedProfile.username || null);
+      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url)
+        setAvatarPreview(avatarPublicUrl);
       setAvatarFile(null);
       toast({ title: "Profile Saved Successfully!" });
-      router.refresh(); 
+      router.refresh();
     }
     setIsSaving(false);
   };
 
-  if (isLoading || isInitialProfileLoad) { // Show skeleton if initial load is true
+  if (isLoading || isInitialProfileLoad) {
+    // Show skeleton if initial load is true
     return (
       <main className="flex-grow container mx-auto px-4 py-8 animate-fade-in-up">
         <div className="max-w-3xl mx-auto">
@@ -269,17 +307,23 @@ export default function ProfileSettingsPage() {
     );
   }
 
-  if (!userData && !isLoading) { // Handle case where userData is null after loading (e.g. severe error)
-     return (
+  if (!userData && !isLoading) {
+    // Handle case where userData is null after loading (e.g. severe error)
+    return (
       <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center justify-center">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold text-destructive">Could not load profile data</h2>
-        <p className="text-muted-foreground">Please try again later or contact support.</p>
-         <Button onClick={() => router.push('/')} className="mt-6">Go to Homepage</Button>
+        <h2 className="text-xl font-semibold text-destructive">
+          Could not load profile data
+        </h2>
+        <p className="text-muted-foreground">
+          Please try again later or contact support.
+        </p>
+        <Button onClick={() => router.push("/")} className="mt-6">
+          Go to Homepage
+        </Button>
       </main>
     );
   }
-
 
   return (
     <main className="flex-grow container mx-auto px-4 py-8 animate-fade-in-up">
@@ -312,7 +356,8 @@ export default function ProfileSettingsPage() {
                   <AvatarFallback className="text-4xl">
                     {userData?.full_name?.[0]?.toUpperCase() ||
                       userData?.username?.[0]?.toUpperCase() ||
-                      currentUserEmail?.[0]?.toUpperCase() || "U"}
+                      currentUserEmail?.[0]?.toUpperCase() ||
+                      "U"}
                   </AvatarFallback>
                 </Avatar>
                 <Button
@@ -320,7 +365,9 @@ export default function ProfileSettingsPage() {
                   size="icon"
                   variant="secondary"
                   className="absolute bottom-0 right-0 rounded-full h-10 w-10 border-2 border-card shadow-md hover:bg-muted focus-ring"
-                  onClick={() => document.getElementById("avatarUpload")?.click()}
+                  onClick={() =>
+                    document.getElementById("avatarUpload")?.click()
+                  }
                   aria-label="Change profile picture"
                   disabled={isSaving}
                 >
@@ -340,7 +387,9 @@ export default function ProfileSettingsPage() {
                   type="button"
                   variant="outline"
                   className="rounded-full focus-ring"
-                  onClick={() => document.getElementById("avatarUpload")?.click()}
+                  onClick={() =>
+                    document.getElementById("avatarUpload")?.click()
+                  }
                   disabled={isSaving}
                 >
                   Upload New Picture
@@ -409,9 +458,14 @@ export default function ProfileSettingsPage() {
                     {usernameError}
                   </p>
                 )}
-                 {!usernameError && userData?.username && userData.username.trim().length > 0 && userData.username.trim().length < 3 && (
-                   <p className="text-xs text-destructive mt-1">Username must be at least 3 characters.</p>
-                 )}
+                {!usernameError &&
+                  userData?.username &&
+                  userData.username.trim().length > 0 &&
+                  userData.username.trim().length < 3 && (
+                    <p className="text-xs text-destructive mt-1">
+                      Username must be at least 3 characters.
+                    </p>
+                  )}
               </div>
               <div className="md:col-span-2">
                 <Label
@@ -484,7 +538,8 @@ export default function ProfileSettingsPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Your email is not shown on your public profile. Contact support to change it.
+                Your email is not shown on your public profile. Contact support
+                to change it.
               </p>
             </div>
           </section>
@@ -503,7 +558,13 @@ export default function ProfileSettingsPage() {
               type="submit"
               size="lg"
               className="rounded-full px-8 bg-primary hover:bg-primary/90 focus-ring"
-              disabled={isSaving || !!usernameError || (userData?.username && userData.username.trim().length < 3 && userData.username.trim() !== initialUsername) }
+              disabled={
+                isSaving ||
+                !!usernameError ||
+                (userData?.username &&
+                  userData.username.trim().length < 3 &&
+                  userData.username.trim() !== initialUsername)
+              }
             >
               {isSaving ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />

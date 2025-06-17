@@ -1,4 +1,3 @@
-
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -7,7 +6,9 @@ import type { TablesInsert } from "@/types/supabase";
 
 // Helper to map Supabase pin data (with joined profile) to our Pin type
 // Exporting for use in other services like searchService
-export async function mapSupabasePin(supabasePin: PinWithUploader): Promise<Pin> {
+export async function mapSupabasePin(
+  supabasePin: PinWithUploader,
+): Promise<Pin> {
   return {
     id: supabasePin.id,
     user_id: supabasePin.user_id || "",
@@ -134,7 +135,10 @@ export async function fetchPinsByUserId(
     const pins = data ? await Promise.all(data.map(mapSupabasePin)) : [];
     return { pins, error: null };
   } catch (e: any) {
-    console.error("Unexpected error in fetchPinsByUserId:", (e as Error).message);
+    console.error(
+      "Unexpected error in fetchPinsByUserId:",
+      (e as Error).message,
+    );
     return { pins: [], error: "An unexpected error occurred." };
   }
 }
@@ -151,16 +155,21 @@ export async function createPin(
 
   if (userError || !user) {
     console.error("Authentication error in createPin:", userError?.message);
-    return { pin: null, error: userError?.message || "User must be authenticated to create a pin." };
+    return {
+      pin: null,
+      error:
+        userError?.message || "User must be authenticated to create a pin.",
+    };
   }
 
   if (!pinData.image_url) {
     return { pin: null, error: "Image URL is required." };
   }
-  if (typeof pinData.width !== 'number' || typeof pinData.height !== 'number') {
+  if (typeof pinData.width !== "number" || typeof pinData.height !== "number") {
     return {
       pin: null,
-      error: "Image dimensions (width and height) are required and must be numbers.",
+      error:
+        "Image dimensions (width and height) are required and must be numbers.",
     };
   }
 
@@ -187,27 +196,37 @@ export async function createPin(
 
     if (insertError) {
       console.error("Error inserting pin:", insertError.message);
-      return { pin: null, error: `Failed to create pin: ${insertError.message}` };
+      return {
+        pin: null,
+        error: `Failed to create pin: ${insertError.message}`,
+      };
     }
 
     if (insertedPinData) {
       let createdPin = insertedPinData as PinWithUploader;
 
       if (!createdPin.profiles) {
-        console.warn(`Profile data for user ${user.id} not immediately available after pin creation. Attempting fallback fetch.`);
+        console.warn(
+          `Profile data for user ${user.id} not immediately available after pin creation. Attempting fallback fetch.`,
+        );
         const { data: profileData, error: profileFetchError } = await supabase
           .from("profiles")
           .select("username, avatar_url, full_name")
           .eq("id", user.id)
           .single();
-        
-        if (profileFetchError && profileFetchError.code !== 'PGRST116') {
-            console.error("Error in fallback fetch for profile details after pin creation:", profileFetchError.message);
+
+        if (profileFetchError && profileFetchError.code !== "PGRST116") {
+          console.error(
+            "Error in fallback fetch for profile details after pin creation:",
+            profileFetchError.message,
+          );
         }
         if (profileData) {
           createdPin.profiles = profileData;
         } else {
-           console.warn(`Fallback profile fetch for user ${user.id} found no profile. Uploader info on pin will be undefined.`);
+          console.warn(
+            `Fallback profile fetch for user ${user.id} found no profile. Uploader info on pin will be undefined.`,
+          );
         }
       }
       return { pin: await mapSupabasePin(createdPin), error: null };
@@ -217,7 +236,13 @@ export async function createPin(
       error: "Failed to create pin or retrieve created pin data.",
     };
   } catch (e: any) {
-    console.error("Unexpected error in createPin transaction:", (e as Error).message);
-    return { pin: null, error: `An unexpected error occurred: ${(e as Error).message}` };
+    console.error(
+      "Unexpected error in createPin transaction:",
+      (e as Error).message,
+    );
+    return {
+      pin: null,
+      error: `An unexpected error occurred: ${(e as Error).message}`,
+    };
   }
 }

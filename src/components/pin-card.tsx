@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -19,7 +18,8 @@ interface PinCardProps {
   priority?: boolean;
 }
 
-const PinCard = memo(function PinCard({ // Wrap component with memo
+const PinCard = memo(function PinCard({
+  // Wrap component with memo
   pin,
   onClick,
   className,
@@ -69,55 +69,53 @@ const PinCard = memo(function PinCard({ // Wrap component with memo
         priority={priority}
         data-ai-hint={pin.title || "pin image"}
         onLoad={() => setIsImageLoading(false)}
-        onError={() => setIsImageLoading(false)} 
-        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" 
+        onError={() => setIsImageLoading(false)}
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
       />
-      {showDetails &&
-        pin.uploader &&
-        !isImageLoading && ( 
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3 text-white">
-            <div className="flex justify-end items-start">
-              <Button
-                variant="secondary"
-                size="icon"
-                className="bg-white/20 hover:bg-white/30 text-white rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
-                  e.stopPropagation(); 
-                }}
-                aria-label="More options"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <Link
-                href={`/u/${pin.uploader.username}`}
-                className="flex items-center gap-1.5 group/uploaderinfo hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Avatar className="h-6 w-6 border-2 border-white/50">
-                  <AvatarImage
-                    src={pin.uploader.avatar_url || undefined}
-                    alt={
-                      pin.uploader.full_name ||
-                      pin.uploader.username ||
-                      "Uploader"
-                    }
-                    data-ai-hint="uploader avatar small"
-                  />
-                  <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                    {pin.uploader.full_name?.[0]?.toUpperCase() ||
-                      pin.uploader.username?.[0]?.toUpperCase() ||
-                      "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="truncate font-medium">
-                  {pin.uploader.full_name || pin.uploader.username}
-                </span>
-              </Link>
-            </div>
+      {showDetails && pin.uploader && !isImageLoading && (
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3 text-white">
+          <div className="flex justify-end items-start">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="bg-white/20 hover:bg-white/30 text-white rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              aria-label="More options"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
           </div>
-        )}
+          <div className="flex items-center justify-between text-xs">
+            <Link
+              href={`/u/${pin.uploader.username}`}
+              className="flex items-center gap-1.5 group/uploaderinfo hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Avatar className="h-6 w-6 border-2 border-white/50">
+                <AvatarImage
+                  src={pin.uploader.avatar_url || undefined}
+                  alt={
+                    pin.uploader.full_name ||
+                    pin.uploader.username ||
+                    "Uploader"
+                  }
+                  data-ai-hint="uploader avatar small"
+                />
+                <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                  {pin.uploader.full_name?.[0]?.toUpperCase() ||
+                    pin.uploader.username?.[0]?.toUpperCase() ||
+                    "U"}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate font-medium">
+                {pin.uploader.full_name || pin.uploader.username}
+              </span>
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 

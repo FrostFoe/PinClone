@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PinGrid from "@/components/pin-grid";
-import type { Pin, Profile as UserProfileType } from "@/types"; 
+import type { Pin, Profile as UserProfileType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,7 +24,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { fetchProfileById } from "@/services/profileService";
 import { fetchPinsByUserId } from "@/services/pinService";
 
-export const dynamic = 'force-dynamic'; 
+export const dynamic = "force-dynamic";
 
 const PINS_PER_PAGE = 18;
 
@@ -35,7 +34,9 @@ export default function ProfilePage() {
   const supabase = createSupabaseBrowserClient();
 
   const [userProfile, setUserProfile] = useState<UserProfileType | null>(null);
-  const [profileState, setProfileState] = useState<"loading" | "loaded" | "not_found" | "error">("loading");
+  const [profileState, setProfileState] = useState<
+    "loading" | "loaded" | "not_found" | "error"
+  >("loading");
   const [pins, setPins] = useState<Pin[]>([]);
   const [isLoadingPins, setIsLoadingPins] = useState(false);
   const [pinsPage, setPinsPage] = useState(1);
@@ -64,7 +65,7 @@ export default function ProfilePage() {
         );
       } else {
         fetchedData = { pins: [], error: null };
-        setHasMorePins(false); 
+        setHasMorePins(false);
       }
 
       const { pins: newPins, error } = fetchedData;
@@ -96,7 +97,7 @@ export default function ProfilePage() {
     async (userId: string) => {
       setProfileState("loading");
       const { profile, error } = await fetchProfileById(userId);
-      
+
       if (error) {
         if (error === "Profile not found for this user ID.") {
           setProfileState("not_found");
@@ -118,7 +119,7 @@ export default function ProfilePage() {
         loadMorePins(userId, 1, true, activeTab);
       } else {
         // Should be caught by error === "Profile not found..."
-        setProfileState("not_found"); 
+        setProfileState("not_found");
         setUserProfile(null);
       }
     },
@@ -145,15 +146,14 @@ export default function ProfilePage() {
     fetchUserSession();
   }, [supabase.auth, router, toast, loadUserProfile]);
 
-
   useEffect(() => {
-    if (userProfile?.id && activeTab && profileState === "loaded") { 
+    if (userProfile?.id && activeTab && profileState === "loaded") {
       setPins([]);
       setPinsPage(1);
       setHasMorePins(true);
       loadMorePins(userProfile.id, 1, true, activeTab);
     }
-  }, [activeTab, userProfile?.id, profileState, loadMorePins]); 
+  }, [activeTab, userProfile?.id, profileState, loadMorePins]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -225,15 +225,21 @@ export default function ProfilePage() {
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 animate-fade-in-up pt-8">
         <AlertTriangle className="h-20 w-20 text-amber-500 mb-6" />
         <h1 className="text-2xl font-bold text-foreground mb-3">
-          {profileState === "not_found" ? "Profile Setup Incomplete" : "Error Loading Profile"}
+          {profileState === "not_found"
+            ? "Profile Setup Incomplete"
+            : "Error Loading Profile"}
         </h1>
         <p className="text-muted-foreground mb-6 max-w-md">
-          {profileState === "not_found" 
+          {profileState === "not_found"
             ? "Your profile information is missing. Please complete your profile setup in the settings."
             : "We couldn't load your profile information. Please try again later or contact support."}
         </p>
         {profileState === "not_found" && (
-          <Button size="lg" className="rounded-full px-8" onClick={() => router.push('/settings/profile')}>
+          <Button
+            size="lg"
+            className="rounded-full px-8"
+            onClick={() => router.push("/settings/profile")}
+          >
             <Edit3 className="mr-2 h-5 w-5" /> Go to Settings
           </Button>
         )}
@@ -241,11 +247,14 @@ export default function ProfilePage() {
     );
   }
 
-
-  if (!userProfile) { // Should be covered by profileState checks, but as a fallback
-    return <div className="flex-1 flex items-center justify-center"><p>An unexpected error occurred.</p></div>;
+  if (!userProfile) {
+    // Should be covered by profileState checks, but as a fallback
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p>An unexpected error occurred.</p>
+      </div>
+    );
   }
-
 
   return (
     <div className="flex-1 flex flex-col animate-fade-in-up pt-8">

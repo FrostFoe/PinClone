@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -31,13 +30,13 @@ import { useEffect, useState } from "react";
 import type { Profile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import PincloneLogo from "./pinclone-logo";
-import { signOutClient } from "@/lib/auth/client"; 
+import { signOutClient } from "@/lib/auth/client";
 
 export default function AppHeader() {
   const { isMobile, toggleSidebar } = useSidebar();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParamsHook = useSearchParams(); 
+  const searchParamsHook = useSearchParams();
   const supabase = createSupabaseBrowserClient();
   const { toast } = useToast();
 
@@ -46,7 +45,9 @@ export default function AppHeader() {
   );
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(searchParamsHook.get("q") || "");
+  const [searchQuery, setSearchQuery] = useState(
+    searchParamsHook.get("q") || "",
+  );
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,7 +55,10 @@ export default function AppHeader() {
   }, [searchParamsHook]);
 
   useEffect(() => {
-    const fetchUserAndProfile = async (userId: string, userEmail: string | undefined) => {
+    const fetchUserAndProfile = async (
+      userId: string,
+      userEmail: string | undefined,
+    ) => {
       setIsLoadingUser(true); // Set loading true at the start of fetch
       setCurrentUserEmail(userEmail || null);
       try {
@@ -64,17 +68,23 @@ export default function AppHeader() {
           .eq("id", userId)
           .single();
 
-        if (profileError && profileError.code !== "PGRST116") { 
-          console.error("AppHeader: Supabase error fetching profile:", profileError.message);
+        if (profileError && profileError.code !== "PGRST116") {
+          console.error(
+            "AppHeader: Supabase error fetching profile:",
+            profileError.message,
+          );
           setCurrentUserProfile(null);
         } else {
           setCurrentUserProfile(profileData as Profile | null);
         }
       } catch (e: any) {
-        console.error("AppHeader: Unexpected error fetching profile:", e.message);
-        setCurrentUserProfile(null); 
+        console.error(
+          "AppHeader: Unexpected error fetching profile:",
+          e.message,
+        );
+        setCurrentUserProfile(null);
       } finally {
-        setIsLoadingUser(false); 
+        setIsLoadingUser(false);
       }
     };
 
@@ -89,7 +99,7 @@ export default function AppHeader() {
         }
       },
     );
-    
+
     // Initial fetch
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
@@ -100,7 +110,6 @@ export default function AppHeader() {
         setIsLoadingUser(false); // Ensure loading is false if no session
       }
     });
-
 
     return () => {
       authListener.subscription.unsubscribe();
@@ -132,9 +141,9 @@ export default function AppHeader() {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     } else {
       if (pathname === "/search") {
-        router.push("/search"); 
+        router.push("/search");
       } else {
-        router.push("/search"); 
+        router.push("/search");
       }
     }
   };
@@ -142,7 +151,7 @@ export default function AppHeader() {
   const avatarFallbackText =
     currentUserProfile?.full_name?.[0]?.toUpperCase() ||
     currentUserProfile?.username?.[0]?.toUpperCase() ||
-    currentUserEmail?.[0]?.toUpperCase() || 
+    currentUserEmail?.[0]?.toUpperCase() ||
     "P";
   const isHomePage = pathname === "/";
 
@@ -178,9 +187,9 @@ export default function AppHeader() {
           >
             Home
           </Button>
-           {currentUserProfile && ( 
+          {currentUserProfile && (
             <Button
-              variant="ghost" 
+              variant="ghost"
               size="default"
               className="rounded-full px-4 font-medium text-base text-foreground hover:bg-secondary hidden md:inline-flex"
               onClick={() => router.push("/create")}
@@ -207,28 +216,28 @@ export default function AppHeader() {
         <nav className="flex items-center gap-0.5 sm:gap-1.5">
           {currentUserProfile && (
             <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full h-11 w-11 sm:h-12 sm:w-12 text-foreground/70 hover:text-primary hover:bg-primary/10 focus-ring"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full h-11 w-11 sm:h-12 sm:w-12 text-foreground/70 hover:text-primary hover:bg-primary/10 focus-ring"
-              aria-label="Messages"
-            >
-              <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full h-11 w-11 sm:h-12 sm:w-12 text-foreground/70 hover:text-primary hover:bg-primary/10 focus-ring"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full h-11 w-11 sm:h-12 sm:w-12 text-foreground/70 hover:text-primary hover:bg-primary/10 focus-ring"
+                aria-label="Messages"
+              >
+                <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+              </Button>
             </>
           )}
 
           {isLoadingUser ? (
             <Skeleton className="h-10 w-10 rounded-full" />
-          ) : currentUserProfile || currentUserEmail ? ( 
+          ) : currentUserProfile || currentUserEmail ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -281,7 +290,8 @@ export default function AppHeader() {
                       <div className="overflow-hidden flex-1">
                         <p className="text-sm font-semibold truncate text-foreground">
                           {currentUserProfile?.full_name ||
-                            currentUserProfile?.username || "My Profile"}
+                            currentUserProfile?.username ||
+                            "My Profile"}
                         </p>
                         {currentUserProfile?.username && (
                           <p className="text-xs text-muted-foreground truncate">
@@ -326,7 +336,12 @@ export default function AppHeader() {
             </DropdownMenu>
           ) : (
             <>
-              <Button asChild size="sm" variant="ghost" className="rounded-full px-4 h-10 hidden sm:inline-flex">
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="rounded-full px-4 h-10 hidden sm:inline-flex"
+              >
                 <Link href="/login">Log In</Link>
               </Button>
               <Button asChild size="sm" className="rounded-full px-4 h-10">
@@ -339,4 +354,3 @@ export default function AppHeader() {
     </header>
   );
 }
-

@@ -1,4 +1,3 @@
-
 // src/app/not-found.tsx
 import Link from "next/link";
 import { Suspense } from "react";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import PincloneLogo from "@/components/pinclone-logo";
 import { Compass, AlertTriangle } from "lucide-react";
 
-export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+export const dynamic = "force-dynamic"; // Ensure this page is dynamically rendered
 
 // Inner component for the actual page content
 function NotFoundContent() {
@@ -42,7 +41,9 @@ function NotFoundContent() {
           size="lg"
           className="rounded-full px-8 py-3 text-base font-semibold focus-ring hover:bg-secondary/70"
         >
-          <Link href="/help"> {/* Assuming a help page might exist */}
+          <Link href="/help">
+            {" "}
+            {/* Assuming a help page might exist */}
             Contact Support
           </Link>
         </Button>
@@ -56,7 +57,13 @@ function NotFoundContent() {
 
 export default function NotFound() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><p>Loading...</p></div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <p>Loading...</p>
+        </div>
+      }
+    >
       <NotFoundContent />
     </Suspense>
   );

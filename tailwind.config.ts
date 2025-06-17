@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -30,12 +29,12 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          hover: "hsl(var(--primary) / 0.9)", 
+          hover: "hsl(var(--primary) / 0.9)",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
-          hover: "hsl(var(--secondary) / 0.8)", 
+          hover: "hsl(var(--secondary) / 0.8)",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -52,7 +51,7 @@ export default {
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))", 
+        ring: "hsl(var(--ring))",
         chart: {
           "1": "hsl(var(--chart-1))",
           "2": "hsl(var(--chart-2))",
@@ -72,17 +71,17 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)", 
-        md: "calc(var(--radius) - 2px)", 
-        sm: "calc(var(--radius) - 4px)", 
-        xl: "calc(var(--radius) + 4px)", 
-        "2xl": "calc(var(--radius) + 8px)", 
-        "3xl": "calc(var(--radius) + 16px)", 
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+        xl: "calc(var(--radius) + 4px)",
+        "2xl": "calc(var(--radius) + 8px)",
+        "3xl": "calc(var(--radius) + 16px)",
         full: "9999px",
       },
       spacing: {
-        "grid-gap": "var(--grid-gap)", 
-        "header-height": "var(--header-height)", 
+        "grid-gap": "var(--grid-gap)",
+        "header-height": "var(--header-height)",
       },
       boxShadow: {
         subtle:

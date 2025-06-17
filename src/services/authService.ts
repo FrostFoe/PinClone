@@ -1,20 +1,18 @@
+"use server";
 
-'use server';
-
-import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
-import { headers } from 'next/headers';
-import type { Provider } from '@supabase/supabase-js';
-
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
+import type { Provider } from "@supabase/supabase-js";
 
 export async function signUpWithEmail(formData: FormData) {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-  const fullName = formData.get('fullName') as string; // Ensure this is passed from the form
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const fullName = formData.get("fullName") as string; // Ensure this is passed from the form
 
   const supabase = createSupabaseRouteHandlerClient();
-  
+
   // Get origin for the email redirect link
-  const origin = headers().get('origin');
+  const origin = headers().get("origin");
   const callbackUrl = `${origin}/auth/callback`;
 
   const { data, error } = await supabase.auth.signUp({
@@ -30,7 +28,11 @@ export async function signUpWithEmail(formData: FormData) {
   });
 
   if (error) {
-    return { user: null, session: null, error: { message: error.message, code: error.code?.toString() } };
+    return {
+      user: null,
+      session: null,
+      error: { message: error.message, code: error.code?.toString() },
+    };
   }
   // If data.user is present but data.session is null, it means email confirmation is pending.
   // If both are present, user is signed up and logged in (e.g., if auto-confirm is on).
@@ -38,8 +40,8 @@ export async function signUpWithEmail(formData: FormData) {
 }
 
 export async function signInWithPassword(formData: FormData) {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
   const supabase = createSupabaseRouteHandlerClient();
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -48,7 +50,10 @@ export async function signInWithPassword(formData: FormData) {
   });
 
   if (error) {
-    return { session: null, error: { message: error.message, code: error.code?.toString() } };
+    return {
+      session: null,
+      error: { message: error.message, code: error.code?.toString() },
+    };
   }
   return { session: data.session, error: null };
 }

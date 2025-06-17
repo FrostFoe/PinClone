@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -159,7 +158,11 @@ export default function ImageZoomModal({
               onLoad={() => setIsImageLoading(false)}
               onError={() => {
                 setIsImageLoading(false);
-                toast({variant: "destructive", title: "Image Error", description: "Could not load the zoomed image."})
+                toast({
+                  variant: "destructive",
+                  title: "Image Error",
+                  description: "Could not load the zoomed image.",
+                });
               }}
               sizes="90vw"
             />

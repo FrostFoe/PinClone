@@ -1,4 +1,3 @@
-
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/supabase";
@@ -14,7 +13,9 @@ export function createSupabaseServerClient() {
       "CRITICAL: Supabase URL or Anon Key is MISSING from environment variables. " +
       "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your .env.local file (and for your deployment). " +
       "You MUST restart your Next.js development server after adding/changing .env.local.";
-    console.error(`\n\n${"=".repeat(60)}\n${errorMessage}\n${"=".repeat(60)}\n\n`);
+    console.error(
+      `\n\n${"=".repeat(60)}\n${errorMessage}\n${"=".repeat(60)}\n\n`,
+    );
     throw new Error(
       "Supabase server configuration error: Environment variables missing. Check server logs.",
     );
@@ -62,7 +63,9 @@ export function createSupabaseRouteHandlerClient() {
       "CRITICAL: Supabase URL or Anon Key is MISSING for Route Handler client. " +
       "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your .env.local file (and for your deployment). " +
       "You MUST restart your Next.js development server after adding/changing .env.local.";
-    console.error(`\n\n${"=".repeat(60)}\n${errorMessage}\n${"=".repeat(60)}\n\n`);
+    console.error(
+      `\n\n${"=".repeat(60)}\n${errorMessage}\n${"=".repeat(60)}\n\n`,
+    );
     throw new Error(
       "Supabase Route Handler configuration error: Environment variables missing. Check server logs.",
     );

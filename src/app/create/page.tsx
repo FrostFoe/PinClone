@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,7 +16,7 @@ import Image from "next/image";
 import { UploadCloud, XCircle, Loader2 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
-export const dynamic = 'force-dynamic'; 
+export const dynamic = "force-dynamic";
 
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -111,17 +110,21 @@ export default function CreatePinPage() {
 
       const img = document.createElement("img");
       img.onload = () => {
-        setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+        setImageDimensions({
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+        });
       };
       img.onerror = () => {
         console.error("Error loading image for dimensions.");
         setImageDimensions(null);
-      }
+      };
       img.src = URL.createObjectURL(file);
 
-      return () => { // Cleanup
-        if (img.src.startsWith('blob:')) {
-            URL.revokeObjectURL(img.src);
+      return () => {
+        // Cleanup
+        if (img.src.startsWith("blob:")) {
+          URL.revokeObjectURL(img.src);
         }
       };
     } else {
@@ -142,7 +145,8 @@ export default function CreatePinPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "User not authenticated or image data (including dimensions) missing or invalid.",
+        description:
+          "User not authenticated or image data (including dimensions) missing or invalid.",
       });
       return;
     }
@@ -155,7 +159,7 @@ export default function CreatePinPage() {
 
     try {
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("pins") 
+        .from("pins")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
@@ -252,7 +256,7 @@ export default function CreatePinPage() {
                             alt="Pin preview"
                             fill // Use fill for aspect ratio container
                             sizes="(max-width: 1023px) 100vw, 50vw"
-                            style={{ objectFit: 'cover' }}
+                            style={{ objectFit: "cover" }}
                             className="rounded-xl"
                           />
                           <Button
@@ -391,7 +395,9 @@ export default function CreatePinPage() {
                 !imageFile ||
                 imageFile.length === 0 ||
                 !!errors.imageFile ||
-                !imageDimensions || imageDimensions.width === 0 || imageDimensions.height === 0
+                !imageDimensions ||
+                imageDimensions.width === 0 ||
+                imageDimensions.height === 0
               }
             >
               {(isUploading || isSubmitting) && (
