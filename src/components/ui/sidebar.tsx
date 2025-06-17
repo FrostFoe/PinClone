@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -81,10 +82,27 @@ const SidebarProvider = React.forwardRef<
           _setOpen(openState);
         }
 
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        // Store state in cookie if not mobile
+        if (typeof window !== "undefined" && !isMobile) {
+          document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        }
       },
-      [setOpenProp, open],
+      [setOpenProp, open, isMobile],
     );
+
+    // Effect to read cookie on initial mount (client-side only)
+    React.useEffect(() => {
+      if (typeof window !== "undefined" && !isMobile) {
+        const cookieValue = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith(`${SIDEBAR_COOKIE_NAME}=`))
+          ?.split("=")[1];
+        if (cookieValue !== undefined) {
+          _setOpen(cookieValue === "true");
+        }
+      }
+    }, [isMobile]);
+
 
     const toggleSidebar = React.useCallback(() => {
       return isMobile
@@ -766,3 +784,5 @@ export {
   SidebarTrigger,
   useSidebar,
 };
+
+    

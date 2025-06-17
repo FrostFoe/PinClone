@@ -54,9 +54,6 @@ interface PinDetailClientContentProps {
 
 export default function PinDetailClientContent({ params: routeParams }: PinDetailClientContentProps) {
   const router = useRouter();
-  // No need to call useParams() again if routeParams.id is sufficient
-  // If you need other params not passed, then useParams() is fine.
-  // const params = useParams();
   const { toast } = useToast();
   const pinId = routeParams?.id as string; // Use passed params
 
@@ -95,7 +92,7 @@ export default function PinDetailClientContent({ params: routeParams }: PinDetai
       }
       setIsLoadingPin(false);
     },
-    [toast], // Removed router from dependencies as it's stable
+    [toast], 
   );
 
   const loadMoreRelatedPins = useCallback(
@@ -193,7 +190,7 @@ export default function PinDetailClientContent({ params: routeParams }: PinDetai
     loadMoreRelatedPins,
     hasMoreRelated,
     isLoadingRelated,
-    pinDetail, // Changed from pinDetail?.id and pinDetail?.user_id
+    pinDetail, 
     relatedPage,
   ]);
 
@@ -562,3 +559,5 @@ export default function PinDetailClientContent({ params: routeParams }: PinDetai
     </>
   );
 }
+
+    

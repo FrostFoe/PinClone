@@ -67,3 +67,4 @@ export default function PinDetailPageContainer({ params }: { params: { id: strin
   );
 }
 
+    

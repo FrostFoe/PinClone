@@ -1,3 +1,4 @@
+
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -36,6 +37,7 @@ export async function signInWithOAuthBrowser(
     };
   }
   // signInWithOAuth redirects, so a successful response usually means the redirect is imminent.
+  // No user data is returned here directly; it's handled via the callback.
   return { data, error: null };
 }
 
@@ -48,3 +50,5 @@ export async function signOutClient() {
   }
   return { error: null };
 }
+
+    

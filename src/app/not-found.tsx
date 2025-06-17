@@ -1,3 +1,4 @@
+
 // src/app/not-found.tsx
 import Link from "next/link";
 import { Suspense } from "react";
@@ -41,9 +42,7 @@ function NotFoundContent() {
           size="lg"
           className="rounded-full px-8 py-3 text-base font-semibold focus-ring hover:bg-secondary/70"
         >
-          <Link href="/help">
-            {" "}
-            {/* Assuming a help page might exist */}
+          <Link href="/help"> {/* Assuming a help page might exist */}
             Contact Support
           </Link>
         </Button>
@@ -68,3 +67,5 @@ export default function NotFound() {
     </Suspense>
   );
 }
+
+    

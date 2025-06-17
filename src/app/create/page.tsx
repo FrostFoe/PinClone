@@ -1,29 +1,31 @@
+
 // ==========================================================================================
 // !! CRITICAL SUPABASE SETUP FOR PIN CREATION !!
 // ==========================================================================================
-// TO FIX "Bucket not found" or "new row violates row-level security policy" ERRORS:
+// THIS PAGE REQUIRES A SUPABASE STORAGE BUCKET NAMED 'pins'.
 //
 // 1. CREATE 'pins' BUCKET IN SUPABASE STORAGE:
 //    - Go to your Supabase Project Dashboard -> Storage -> Buckets.
 //    - Click 'Create new bucket'.
 //    - Bucket name: pins (all lowercase)
-//    - Toggle 'Public bucket' to ON. (This sets basic read access. Uploads are handled by RLS below).
+//    - Toggle 'Public bucket' to ON. (This allows public read access for images).
 //    - Click 'Create bucket'.
 //
-// 2. APPLY ROW LEVEL SECURITY (RLS) POLICIES FOR STORAGE:
+// 2. APPLY ROW LEVEL SECURITY (RLS) POLICIES FOR STORAGE UPLOADS:
 //    - The `sql/schema.sql` file in this project contains the necessary RLS policies
 //      for the `storage.objects` table, specifically to allow authenticated users
 //      to UPLOAD (INSERT) into the 'pins' bucket.
 //    - Ensure you have run the LATEST version of `sql/schema.sql` in your Supabase SQL Editor.
-//    - Key policy for uploads:
-//      CREATE POLICY "Allow authenticated upload to pins" ON storage.objects
-//        FOR INSERT TO authenticated WITH CHECK (bucket_id = 'pins' AND auth.uid() = owner);
 //    - Also ensure RLS is ENABLED on the `storage.objects` table using:
 //      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 //      (This is also included in `sql/schema.sql`).
 //
 // 3. REFRESH SUPABASE SCHEMA CACHE:
 //    - After applying SQL changes, go to Supabase Dashboard -> API section -> Click "Reload schema".
+//
+// IF YOU ENCOUNTER "Bucket not found" ERRORS: You missed step 1.
+// IF YOU ENCOUNTER "new row violates row-level security policy" ERRORS: You missed step 2 or 3,
+// or your RLS policies for storage are not correctly applied.
 // ==========================================================================================
 "use client";
 
@@ -461,3 +463,5 @@ export default function CreatePinPage() {
     </main>
   );
 }
+
+    

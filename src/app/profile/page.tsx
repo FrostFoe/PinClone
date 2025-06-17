@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -64,8 +65,9 @@ export default function ProfilePage() {
           PINS_PER_PAGE,
         );
       } else {
+        // Placeholder for "Saved" tab (if you implement it)
         fetchedData = { pins: [], error: null };
-        setHasMorePins(false);
+        setHasMorePins(false); // For now, assume "Saved" has no content or is not paged
       }
 
       const { pins: newPins, error } = fetchedData;
@@ -116,14 +118,13 @@ export default function ProfilePage() {
         setPins([]);
         setPinsPage(1);
         setHasMorePins(true);
-        loadMorePins(userId, 1, true, activeTab);
+        // Initial pins load will be triggered by useEffect watching activeTab & userProfile.id
       } else {
-        // Should be caught by error === "Profile not found..."
         setProfileState("not_found");
         setUserProfile(null);
       }
     },
-    [toast, activeTab, loadMorePins],
+    [toast],
   );
 
   useEffect(() => {
@@ -140,7 +141,7 @@ export default function ProfilePage() {
           description: "Please log in to view your profile.",
         });
         router.push("/login?next=/profile");
-        setProfileState("error"); // Or some other state indicating redirection
+        setProfileState("error"); 
       }
     };
     fetchUserSession();
@@ -153,7 +154,8 @@ export default function ProfilePage() {
       setHasMorePins(true);
       loadMorePins(userProfile.id, 1, true, activeTab);
     }
-  }, [activeTab, userProfile?.id, profileState, loadMorePins]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, userProfile?.id, profileState]); // loadMorePins removed
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -163,7 +165,7 @@ export default function ProfilePage() {
           hasMorePins &&
           !isLoadingPins &&
           userProfile?.id &&
-          activeTab === "created" &&
+          activeTab === "created" && // Only paginate for "created" tab for now
           profileState === "loaded"
         ) {
           loadMorePins(userProfile.id, pinsPage, false, activeTab);
@@ -437,3 +439,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

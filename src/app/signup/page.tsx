@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -49,18 +50,25 @@ export default function SignupPage() {
           error.message || "Could not create your account. Please try again.",
       });
     } else if (user && !session) {
+      // This case means email confirmation is pending.
+      // The handle_new_user trigger in Supabase should have created a profile.
       toast({
         title: "Signup Almost Complete!",
         description: "Please check your email to confirm your account.",
       });
+      // Redirect to login, which might show a message if 'confirmation_pending' is passed
       router.push("/login?message=confirmation_pending");
     } else if (user && session) {
+      // This case means user is signed up and logged in (e.g., auto-confirm might be on, or already confirmed).
+      // The handle_new_user trigger in Supabase should have created a profile.
       toast({
         title: "Signup Successful!",
         description: "Welcome! You're being logged in...",
       });
-      // AppClientLayout's onAuthStateChange will handle redirect
+      // AppClientLayout's onAuthStateChange will handle redirect based on new session
+      // If new user, they might be redirected to complete profile if that logic exists
     } else {
+      // Fallback for unexpected scenarios
       toast({
         variant: "destructive",
         title: "Signup Issue",
@@ -86,7 +94,7 @@ export default function SignupPage() {
       });
       setIsGitHubLoading(false);
     }
-    // On success, Supabase redirects.
+    // On success, Supabase redirects. The handle_new_user trigger should create a profile.
   };
 
   return (
@@ -245,3 +253,5 @@ export default function SignupPage() {
     </div>
   );
 }
+
+    

@@ -1,29 +1,31 @@
+
 // ==========================================================================================
 // !! CRITICAL SUPABASE SETUP FOR PROFILE AVATARS !!
 // ==========================================================================================
-// TO FIX "Bucket not found" or "new row violates row-level security policy" ERRORS for avatar uploads:
+// THIS PAGE REQUIRES A SUPABASE STORAGE BUCKET NAMED 'avatars'.
 //
 // 1. CREATE 'avatars' BUCKET IN SUPABASE STORAGE:
 //    - Go to your Supabase Project Dashboard -> Storage -> Buckets.
 //    - Click 'Create new bucket'.
 //    - Bucket name: avatars (all lowercase)
-//    - Toggle 'Public bucket' to ON. (This sets basic read access. Uploads are handled by RLS below).
+//    - Toggle 'Public bucket' to ON. (This allows public read access for images).
 //    - Click 'Create bucket'.
 //
-// 2. APPLY ROW LEVEL SECURITY (RLS) POLICIES FOR STORAGE:
+// 2. APPLY ROW LEVEL SECURITY (RLS) POLICIES FOR STORAGE UPLOADS:
 //    - The `sql/schema.sql` file in this project contains the necessary RLS policies
 //      for the `storage.objects` table, specifically to allow authenticated users
 //      to UPLOAD (INSERT) into the 'avatars' bucket.
 //    - Ensure you have run the LATEST version of `sql/schema.sql` in your Supabase SQL Editor.
-//    - Key policy for uploads:
-//      CREATE POLICY "Allow authenticated upload to avatars" ON storage.objects
-//        FOR INSERT TO authenticated WITH CHECK (bucket_id = 'avatars' AND auth.uid() = owner);
 //    - Also ensure RLS is ENABLED on the `storage.objects` table using:
 //      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 //      (This is also included in `sql/schema.sql`).
 //
 // 3. REFRESH SUPABASE SCHEMA CACHE:
 //    - After applying SQL changes, go to Supabase Dashboard -> API section -> Click "Reload schema".
+//
+// IF YOU ENCOUNTER "Bucket not found" ERRORS: You missed step 1.
+// IF YOU ENCOUNTER "new row violates row-level security policy" ERRORS: You missed step 2 or 3,
+// or your RLS policies for storage are not correctly applied.
 // ==========================================================================================
 "use client";
 
@@ -63,6 +65,9 @@ const generateDefaultUsername = (email: string): string => {
   if (baseUsername.length < 3) {
     baseUsername = `${baseUsername}user`;
   }
+  // Append a few random chars to reduce immediate collision likelihood
+  // A more robust solution might involve checking DB and iterating
+  baseUsername = baseUsername.substring(0, 15) + Math.random().toString(36).substring(2, 6);
   return baseUsername.substring(0, 20); 
 };
 
@@ -102,7 +107,7 @@ export default function ProfileSettingsPage() {
           setInitialUsername(profile.username || null);
         } else if (
           error === "Profile not found for this user ID." ||
-          error === "PGRST116" 
+          error?.includes("PGRST116") // More generic check for "no rows found"
         ) {
           const defaultUsernameBase = user.email
             ? generateDefaultUsername(user.email)
@@ -143,7 +148,7 @@ export default function ProfileSettingsPage() {
       setIsInitialProfileLoad(false);
     };
     getUserAndProfile();
-  }, [supabase.auth, router, toast]);
+  }, [supabase, router, toast]); // Added supabase to dependency array
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -151,7 +156,7 @@ export default function ProfileSettingsPage() {
     const { name, value } = e.target;
     setUserData((prev) => (prev ? { ...prev, [name]: value } : null));
     if (name === "username") {
-      setUsernameError(null);
+      setUsernameError(null); // Clear username error on change
     }
   };
 
@@ -189,8 +194,13 @@ export default function ProfileSettingsPage() {
       setUsernameError("Username must be at least 3 characters.");
       return;
     }
+    if (!/^[a-zA-Z0-9_.]+$/.test(trimmedUsername)) {
+      setUsernameError("Username can only contain letters, numbers, underscores, and periods.");
+      return;
+    }
 
-    setIsSaving(true); // Use isSaving to indicate loading state for this check
+
+    setIsSaving(true); 
     const { available, error } =
       await checkUsernameAvailability(trimmedUsername);
     if (error) {
@@ -234,7 +244,16 @@ export default function ProfileSettingsPage() {
       });
       return;
     }
-    if (usernameError) { // Check existing usernameError state
+    if (!/^[a-zA-Z0-9_.]+$/.test(userData.username.trim())) {
+      setUsernameError("Username can only contain letters, numbers, underscores, and periods.");
+       toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Username can only contain letters, numbers, underscores, and periods.",
+      });
+      return;
+    }
+    if (usernameError && userData.username.trim() !== initialUsername) { 
       toast({
         variant: "destructive",
         title: "Validation Error",
@@ -248,12 +267,11 @@ export default function ProfileSettingsPage() {
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split(".").pop();
-      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`; // Path within the bucket
-      // Upload to 'avatars' bucket
+      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`; 
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("avatars") // CRITICAL: This bucket MUST exist and have correct RLS policies.
+        .from("avatars") 
         .upload(fileName, avatarFile, {
-          upsert: true, // Overwrite if file with same path exists (e.g., re-uploading avatar)
+          upsert: true, 
           contentType: avatarFile.type,
         });
 
@@ -282,18 +300,17 @@ export default function ProfileSettingsPage() {
 
       const { data: urlData } = supabase.storage
         .from("avatars")
-        .getPublicUrl(uploadData.path); // Use path from uploadData
+        .getPublicUrl(uploadData.path); 
       avatarPublicUrl = urlData.publicUrl;
     }
 
     const updates: TablesUpdate<"profiles"> = {
-      // id: currentUserId, // id is used for matching in upsert, not needed in update payload itself here for Supabase v2 syntax with .eq('id', currentUserId)
       full_name: userData.full_name?.trim() || null,
-      username: userData.username?.trim(), // Already validated
+      username: userData.username?.trim(), 
       bio: userData.bio?.trim() || null,
       website: userData.website?.trim() || null,
-      avatar_url: avatarPublicUrl || null, // Use the new URL if uploaded, else existing
-      updated_at: new Date().toISOString(), // Explicitly set updated_at
+      avatar_url: avatarPublicUrl || null, 
+      updated_at: new Date().toISOString(), 
     };
 
     const { profile: updatedProfile, error: updateError } = await updateProfile(
@@ -307,18 +324,18 @@ export default function ProfileSettingsPage() {
         title: "Profile Update Failed",
         description: updateError,
       });
-      if (updateError === "This username is already taken.") {
-        setUsernameError(updateError);
+      if (updateError.toLowerCase().includes("username") && updateError.toLowerCase().includes("taken")) {
+        setUsernameError("This username is already taken.");
       }
     } else if (updatedProfile) {
-      setUserData(updatedProfile); // Update local state with the saved profile
-      setInitialUsername(updatedProfile.username || null); // Update initialUsername
-      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url) { // if new avatar uploaded
-         setAvatarPreview(avatarPublicUrl); // Update preview with confirmed public URL
+      setUserData(updatedProfile); 
+      setInitialUsername(updatedProfile.username || null); 
+      if (avatarPublicUrl && avatarPublicUrl !== userData.avatar_url) { 
+         setAvatarPreview(avatarPublicUrl); 
       }
-      setAvatarFile(null); // Clear the file input
+      setAvatarFile(null); 
       toast({ title: "Profile Saved Successfully!" });
-      router.refresh(); // Refresh server components (like AppHeader)
+      router.refresh(); 
     }
     setIsSaving(false);
   };
@@ -342,7 +359,7 @@ export default function ProfileSettingsPage() {
     );
   }
 
-  if (!userData && !isLoading) { // Check after loading is complete
+  if (!userData && !isLoading) { 
     return (
       <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center justify-center">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
@@ -383,14 +400,14 @@ export default function ProfileSettingsPage() {
               <div className="relative">
                 <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-secondary">
                   <AvatarImage
-                    src={avatarPreview || undefined} // Use avatarPreview for immediate feedback
+                    src={avatarPreview || undefined} 
                     alt={userData?.full_name || userData?.username || "User"}
                     data-ai-hint="profile avatar large settings"
                   />
                   <AvatarFallback className="text-4xl">
                     {userData?.full_name?.[0]?.toUpperCase() ||
                       userData?.username?.[0]?.toUpperCase() ||
-                      currentUserEmail?.[0]?.toUpperCase() || // Fallback to email initial
+                      currentUserEmail?.[0]?.toUpperCase() || 
                       "U"}
                   </AvatarFallback>
                 </Avatar>
@@ -476,12 +493,12 @@ export default function ProfileSettingsPage() {
                     name="username"
                     value={userData?.username || ""}
                     onChange={handleChange}
-                    onBlur={handleUsernameBlur} // Validate on blur
+                    onBlur={handleUsernameBlur} 
                     className={`pl-7 h-11 focus-ring ${usernameError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     placeholder="yourusername"
                     aria-describedby="username-error"
                     disabled={isSaving}
-                    required // Username is required
+                    required 
                   />
                 </div>
                 {usernameError && (
@@ -494,6 +511,9 @@ export default function ProfileSettingsPage() {
                 )}
                  {!usernameError && userData?.username && userData.username.trim().length > 0 && userData.username.trim().length < 3 && (
                   <p className="text-xs text-destructive mt-1">Username must be at least 3 characters.</p>
+                )}
+                 {!usernameError && userData?.username && !/^[a-zA-Z0-9_.]+$/.test(userData.username.trim()) && (
+                  <p className="text-xs text-destructive mt-1">Username can only contain letters, numbers, underscores, and periods.</p>
                 )}
               </div>
               <div className="md:col-span-2">
@@ -530,7 +550,7 @@ export default function ProfileSettingsPage() {
                   <Input
                     id="website"
                     name="website"
-                    type="url" // Use type="url" for basic client-side validation
+                    type="url" 
                     value={userData?.website || ""}
                     onChange={handleChange}
                     className="pl-10 h-11 focus-ring"
@@ -562,7 +582,7 @@ export default function ProfileSettingsPage() {
                   value={currentUserEmail || "Loading..."}
                   className="pl-10 h-11 bg-muted/50 border-muted/30 cursor-not-allowed"
                   placeholder="your.email@example.com"
-                  disabled // Email is not editable here
+                  disabled 
                   readOnly
                 />
               </div>
@@ -587,7 +607,7 @@ export default function ProfileSettingsPage() {
               type="submit"
               size="lg"
               className="rounded-full px-8 bg-primary hover:bg-primary/90 focus-ring"
-              disabled={isSaving || !!usernameError || (userData?.username && userData.username.trim().length <3 && userData.username.trim() !== initialUsername)}
+              disabled={isSaving || (!!usernameError && userData?.username !== initialUsername) || (userData?.username && userData.username.trim().length <3 && userData.username.trim() !== initialUsername) || (userData?.username && !/^[a-zA-Z0-9_.]+$/.test(userData.username.trim()))}
             >
               {isSaving ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -602,3 +622,5 @@ export default function ProfileSettingsPage() {
     </main>
   );
 }
+
+    

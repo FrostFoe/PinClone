@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -68,7 +69,7 @@ export default function AppHeader() {
           .eq("id", userId)
           .single();
 
-        if (profileError && profileError.code !== "PGRST116") {
+        if (profileError && profileError.code !== "PGRST116") { // PGRST116 means no rows found, which is fine if profile not created yet
           console.error(
             "AppHeader: Supabase error fetching profile:",
             profileError.message,
@@ -97,6 +98,9 @@ export default function AppHeader() {
           setCurrentUserEmail(null);
           setIsLoadingUser(false); // Ensure loading is false if no session
         }
+        if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+            router.refresh(); // Force refresh to update server components dependent on auth
+        }
       },
     );
 
@@ -114,7 +118,7 @@ export default function AppHeader() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, router]); // Added router to dependencies
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -131,7 +135,7 @@ export default function AppHeader() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
-      // router.push('/login'); // Handled by AppClientLayout's onAuthStateChange > router.refresh
+      // router.push('/login'); // This is now handled by AppClientLayout's onAuthStateChange -> router.refresh()
     }
   };
 
@@ -141,9 +145,9 @@ export default function AppHeader() {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     } else {
       if (pathname === "/search") {
-        router.push("/search");
+        router.push("/search"); // Clear query if already on search page and query is empty
       } else {
-        router.push("/search");
+        router.push("/search"); // Go to search page even if query is empty
       }
     }
   };
@@ -152,7 +156,7 @@ export default function AppHeader() {
     currentUserProfile?.full_name?.[0]?.toUpperCase() ||
     currentUserProfile?.username?.[0]?.toUpperCase() ||
     currentUserEmail?.[0]?.toUpperCase() ||
-    "P";
+    "P"; // Fallback to P for Pinclone
   const isHomePage = pathname === "/";
 
   return (
@@ -187,7 +191,7 @@ export default function AppHeader() {
           >
             Home
           </Button>
-          {currentUserProfile && (
+          {currentUserProfile && ( // Show create button only if user has a profile (implies logged in)
             <Button
               variant="ghost"
               size="default"
@@ -214,7 +218,7 @@ export default function AppHeader() {
         </div>
 
         <nav className="flex items-center gap-0.5 sm:gap-1.5">
-          {currentUserProfile && (
+          {currentUserProfile && ( // Show icons only if user has a profile
             <>
               <Button
                 variant="ghost"
@@ -237,7 +241,7 @@ export default function AppHeader() {
 
           {isLoadingUser ? (
             <Skeleton className="h-10 w-10 rounded-full" />
-          ) : currentUserProfile || currentUserEmail ? (
+          ) : currentUserProfile || currentUserEmail ? ( // User is logged in (has email) or has a profile
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -298,7 +302,7 @@ export default function AppHeader() {
                             @{currentUserProfile.username}
                           </p>
                         )}
-                        {currentUserEmail && (
+                        {currentUserEmail && !currentUserProfile?.username && ( // Show email if username not yet set
                           <p className="text-xs text-muted-foreground truncate">
                             {currentUserEmail}
                           </p>
@@ -335,6 +339,7 @@ export default function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
+            // User is not logged in
             <>
               <Button
                 asChild
@@ -354,3 +359,5 @@ export default function AppHeader() {
     </header>
   );
 }
+
+    

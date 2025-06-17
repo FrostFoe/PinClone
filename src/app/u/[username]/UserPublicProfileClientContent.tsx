@@ -29,9 +29,8 @@ interface UserPublicProfileClientContentProps {
 
 export default function UserPublicProfileClientContent({ params: routeParams }: UserPublicProfileClientContentProps) {
   const router = useRouter();
-  // const params = useParams(); // Can use if other params are needed
   const { toast } = useToast();
-  const username = routeParams?.username as string; // Use passed params
+  const username = routeParams?.username as string; 
 
   const [userData, setUserData] = useState<Profile | null>(null);
   const [pins, setPins] = useState<Pin[]>([]);
@@ -41,7 +40,7 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
   const [hasMorePins, setHasMorePins] = useState(true);
   const pinsLoaderRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState("created");
-  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false); // Placeholder state
 
   const loadMorePins = useCallback(
     async (
@@ -88,7 +87,7 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
       }
       setIsLoadingPins(false);
     },
-    [toast, isLoadingPins, hasMorePins], // Dependencies for loadMorePins
+    [toast, isLoadingPins, hasMorePins], 
   );
 
   const loadUserProfile = useCallback(
@@ -107,16 +106,17 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
           description: error || `Profile for @${uname} could not be loaded.`,
         });
         // Potentially redirect or show a "not found" state within this component
+        router.push('/not-found'); // Redirect to not-found page
       } else {
         setUserData(profile);
         if (typeof document !== 'undefined') {
              document.title = `${profile.full_name || profile.username}'s Profile | Pinclone`;
         }
-        // Initial pins load will be triggered by useEffect watching userData.id
+        // Initial pins load will be triggered by useEffect watching userData.id & activeTab
       }
       setIsLoadingUser(false);
     },
-    [toast], // Dependencies for loadUserProfile
+    [toast, router], 
   );
 
   useEffect(() => {
@@ -126,14 +126,14 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
   }, [username, loadUserProfile]);
 
   useEffect(() => {
-    if (userData?.id && activeTab) { // Ensure activeTab is also present
-      setPins([]); // Reset pins when user or tab changes
+    if (userData?.id && activeTab) { 
+      setPins([]); 
       setPinsPage(1);
       setHasMorePins(true);
       loadMorePins(userData.id, 1, true, activeTab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData?.id, activeTab]); // loadMorePins removed, it's stable or handled by its own useCallback
+  }, [userData?.id, activeTab]); // loadMorePins removed
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -161,7 +161,7 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
     hasMorePins,
     isLoadingPins,
     pinsPage,
-    userData?.id, // Changed from userData
+    userData?.id, 
     activeTab,
   ]);
 
@@ -203,6 +203,8 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
   }
 
   if (!userData) {
+    // This state will be hit if loadUserProfile sets userData to null due to an error
+    // and before a redirect might happen (or if no redirect is programmed for that error).
     return (
       <div className="flex-1 flex flex-col">
         <div className="flex-grow flex flex-col items-center justify-center text-center p-8">
@@ -386,3 +388,4 @@ export default function UserPublicProfileClientContent({ params: routeParams }: 
   );
 }
 
+    

@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -15,11 +16,11 @@ interface PinCardProps {
   onClick?: (pin: Pin) => void;
   className?: string;
   showDetails?: boolean;
-  priority?: boolean;
+  priority?: boolean; // For LCP optimization on first few pins
 }
 
+// Memoized PinCard to prevent unnecessary re-renders if props haven't changed.
 const PinCard = memo(function PinCard({
-  // Wrap component with memo
   pin,
   onClick,
   className,
@@ -27,12 +28,13 @@ const PinCard = memo(function PinCard({
   priority = false,
 }: PinCardProps) {
   const [isImageLoading, setIsImageLoading] = useState(true);
-  const imageWidth = pin.width || 300;
-  const imageHeight = pin.height || Math.round(imageWidth * 1.33);
+  // Use pin's actual dimensions, fallback if not available (though schema requires them)
+  const imageWidth = pin.width || 300; // Fallback width
+  const imageHeight = pin.height || Math.round(imageWidth * 1.33); // Fallback height maintaining aspect ratio
 
   const handleInteraction = (e: React.MouseEvent | React.KeyboardEvent) => {
     if (onClick) {
-      e.stopPropagation();
+      e.stopPropagation(); // Prevent event bubbling if card is wrapped in another clickable element
       onClick(pin);
     }
   };
@@ -41,7 +43,7 @@ const PinCard = memo(function PinCard({
     <div
       className={cn(
         "group relative break-inside-avoid mb-grid-gap rounded-2xl overflow-hidden shadow-subtle hover:shadow-card transition-all duration-300 ease-in-out transform hover:-translate-y-1",
-        "bg-muted animate-scale-in",
+        "bg-muted animate-scale-in", // Added for subtle animation and background while loading
         className,
       )}
       role={onClick ? "button" : undefined}
@@ -55,22 +57,23 @@ const PinCard = memo(function PinCard({
       }
     >
       {isImageLoading && (
+        // Position skeleton absolutely to be behind the image, revealed if image fails or while loading
         <Skeleton className="absolute inset-0 w-full h-full rounded-2xl bg-muted/70" />
       )}
       <Image
         src={pin.image_url}
         alt={pin.title || "Pin image"}
-        width={imageWidth}
-        height={imageHeight}
+        width={imageWidth} // Use actual or fallback width
+        height={imageHeight} // Use actual or fallback height
         className={cn(
           "w-full h-auto object-cover transition-all duration-300 group-hover:brightness-[0.85]",
-          isImageLoading ? "opacity-0" : "opacity-100",
+          isImageLoading ? "opacity-0" : "opacity-100", // Hide image until loaded
         )}
-        priority={priority}
-        data-ai-hint={pin.title || "pin image"}
+        priority={priority} // For LCP optimization
+        data-ai-hint={pin.title || "pin image"} // AI hint for image search
         onLoad={() => setIsImageLoading(false)}
-        onError={() => setIsImageLoading(false)}
-        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+        onError={() => setIsImageLoading(false)} // Also set loading to false on error to show fallback/skeleton
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" // Responsive image sizes
       />
       {showDetails && pin.uploader && !isImageLoading && (
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3 text-white">
@@ -80,7 +83,8 @@ const PinCard = memo(function PinCard({
               size="icon"
               className="bg-white/20 hover:bg-white/30 text-white rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={(e) => {
-                e.stopPropagation();
+                e.stopPropagation(); // Prevent card click if interacting with button
+                // Add logic for more options if needed
               }}
               aria-label="More options"
             >
@@ -91,7 +95,7 @@ const PinCard = memo(function PinCard({
             <Link
               href={`/u/${pin.uploader.username}`}
               className="flex items-center gap-1.5 group/uploaderinfo hover:underline"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()} // Prevent card click when clicking uploader link
             >
               <Avatar className="h-6 w-6 border-2 border-white/50">
                 <AvatarImage
@@ -119,15 +123,17 @@ const PinCard = memo(function PinCard({
     </div>
   );
 
+  // If onClick is provided, the div itself is the interactive element.
   if (onClick) {
     return content;
   }
 
+  // Otherwise, wrap with a Link for navigation.
   return (
     <Link
       href={`/pin/${pin.id}`}
       passHref
-      className="focus-ring rounded-2xl block"
+      className="focus-ring rounded-2xl block" // Ensure focus ring is on the link
     >
       {content}
     </Link>
@@ -135,3 +141,5 @@ const PinCard = memo(function PinCard({
 });
 
 export default PinCard;
+
+    

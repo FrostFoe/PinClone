@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -212,8 +213,19 @@ export type Composites<
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const
+// Helper types for RLS policy function arguments and return values
+// These might need to be adjusted based on the specifics of your RLS policies/functions
+export interface RLSUserId {
+  user_id: string;
+}
+
+export interface RLSItemId {
+  item_id: string;
+}
+
+export interface RLSOperationResult {
+  allowed: boolean;
+  message?: string;
+}
+
+    

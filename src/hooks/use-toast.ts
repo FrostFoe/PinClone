@@ -1,3 +1,4 @@
+
 "use client";
 
 // Inspired by react-hot-toast library
@@ -6,7 +7,7 @@ import * as React from "react";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_REMOVE_DELAY = 1000000; // A long delay, effectively meaning toasts are removed by dismissal
 
 type ToasterToast = ToastProps & {
   id: string;
@@ -90,8 +91,7 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action;
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
+      // Side effect: schedule removal of toast
       if (toastId) {
         addToRemoveQueue(toastId);
       } else {
@@ -106,7 +106,7 @@ export const reducer = (state: State, action: Action): State => {
           t.id === toastId || toastId === undefined
             ? {
                 ...t,
-                open: false,
+                open: false, // Trigger the close animation
               }
             : t,
         ),
@@ -189,3 +189,5 @@ function useToast() {
 }
 
 export { useToast, toast };
+
+    

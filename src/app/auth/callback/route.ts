@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/server";
 
@@ -29,3 +30,5 @@ export async function GET(request: Request) {
     `${origin}/login?error=OAuth-Callback-Failed&message=No-auth-code-provided`,
   );
 }
+
+    

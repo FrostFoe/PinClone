@@ -33,12 +33,13 @@ export default function ImageZoomModal({
 
   useEffect(() => {
     if (isOpen) {
-      setIsImageLoading(true);
+      setIsImageLoading(true); // Reset loading state when modal opens or pin changes
     }
   }, [isOpen, pin?.id]);
 
   if (!pin) return null;
 
+  // Use pin's actual dimensions, fallback if not available (though schema requires them)
   const imageWidth = pin.width || 800;
   const imageHeight = pin.height || Math.round(imageWidth * 1.2);
 
@@ -68,6 +69,7 @@ export default function ImageZoomModal({
       window.URL.revokeObjectURL(url);
       toast({ title: "Image Download Started" });
     } catch (error) {
+      console.error("Download error:", error);
       toast({
         variant: "destructive",
         title: "Download failed",
@@ -101,6 +103,7 @@ export default function ImageZoomModal({
       <DialogContent
         className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-4 outline-none border-none bg-transparent shadow-none w-full h-full"
         onInteractOutside={(e) => {
+          // Close only if clicking directly on the overlay, not its children
           if (e.target === e.currentTarget) {
             onClose();
           }
@@ -170,7 +173,7 @@ export default function ImageZoomModal({
                   description: "Could not load the zoomed image.",
                 });
               }}
-              sizes="90vw"
+              sizes="90vw" // Provide sizes prop for responsive optimization
             />
           </div>
           <DialogDescription
@@ -184,3 +187,5 @@ export default function ImageZoomModal({
     </Dialog>
   );
 }
+
+    

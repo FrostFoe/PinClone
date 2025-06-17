@@ -1,3 +1,4 @@
+
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import AppClientLayout from "./app-client-layout";
@@ -34,19 +35,19 @@ export const metadata: Metadata = {
     "supabase",
     "nextjs",
   ],
-  manifest: "/manifest.json",
+  manifest: "/manifest.json", // You would need to create a public/manifest.json file
   icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    icon: "/favicon.ico", // You would need to create a public/favicon.ico file
+    apple: "/apple-touch-icon.png", // You would need to create a public/apple-touch-icon.png
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#E60023",
-  colorScheme: "light dark",
+  themeColor: "#E60023", // Matches the primary color
+  colorScheme: "light dark", // Supports both light and dark mode
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 1, // Prevents zooming, common in native-like apps
 };
 
 function LayoutSuspenseFallback() {
@@ -66,10 +67,10 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${poppins.variable} ${ptSans.variable}`}
-      suppressHydrationWarning
+      suppressHydrationWarning // Recommended for Next.js 13+ App Router with theme switching
     >
       <head>
-        {/* Removed direct Google Font links, next/font handles this */}
+        {/* No direct Google Font links needed here as next/font handles it */}
       </head>
       <body>
         <Suspense fallback={<LayoutSuspenseFallback />}>
@@ -79,3 +80,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    

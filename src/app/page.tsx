@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -66,7 +67,7 @@ export default function HomePage() {
   useEffect(() => {
     loadPins(1, true); // Initial load
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Only run on mount
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -166,3 +167,5 @@ export default function HomePage() {
     </main>
   );
 }
+
+    
