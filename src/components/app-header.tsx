@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Search, Bell, MessageCircle, ChevronDown, UserCircle, Settings, LogOut, PlusSquare, ExternalLink, LifeBuoy, FileText, ShieldCheck, GripVertical, Loader2, Home } from 'lucide-react';
+import { Search, Bell, MessageCircle, UserCircle, Settings, LogOut, PlusSquare, ExternalLink, LifeBuoy, FileText, ShieldCheck, GripVertical, Loader2, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -35,6 +35,7 @@ export default function AppHeader() {
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     // Update search query input if URL query param changes
@@ -46,6 +47,7 @@ export default function AppHeader() {
       setIsLoadingUser(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
+        setCurrentUserEmail(session.user.email || null);
         const { data: profileData, error } = await supabase
           .from('profiles')
           .select('*')
@@ -58,6 +60,7 @@ export default function AppHeader() {
         setCurrentUserProfile(profileData as Profile | null);
       } else {
         setCurrentUserProfile(null);
+        setCurrentUserEmail(null);
       }
       setIsLoadingUser(false);
     };
@@ -66,15 +69,15 @@ export default function AppHeader() {
     
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
+         setCurrentUserEmail(session.user.email || null);
          const {data, error} = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
          if (error && error.code !== 'PGRST116') { /* console.error(error); */ } else setCurrentUserProfile(data as Profile | null);
       } else if (event === 'SIGNED_OUT') {
         setCurrentUserProfile(null);
-        if (pathname !== '/login' && pathname !== '/signup' && pathname !== '/') { // Avoid redirect loops
-           router.push('/login');
-        }
+        setCurrentUserEmail(null);
       } else if (event === 'USER_UPDATED' && session?.user) {
         // Refetch profile if user object updated (e.g. email change verified)
+         setCurrentUserEmail(session.user.email || null);
          const {data, error} = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
          if (error && error.code !== 'PGRST116') { /* console.error(error); */ } else setCurrentUserProfile(data as Profile | null);
       }
@@ -86,14 +89,15 @@ export default function AppHeader() {
   }, [supabase, router, pathname]);
 
   const handleLogout = async () => {
-    setIsLoadingUser(true); // Indicate loading state during logout
+    setIsLoadingUser(true); 
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({ variant: 'destructive', title: 'Logout Failed', description: error.message });
     } else {
       setCurrentUserProfile(null);
+      setCurrentUserEmail(null);
       router.push('/login'); 
-      router.refresh(); // Important to re-evaluate server components
+      router.refresh(); 
       toast({ title: 'Logged Out', description: "You have been successfully logged out." });
     }
     setIsLoadingUser(false);
@@ -104,13 +108,13 @@ export default function AppHeader() {
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     } else {
-      router.push('/search'); // Go to search page even if query is empty
+      router.push('/search'); 
     }
   };
 
-  const avatarFallbackText = currentUserProfile?.full_name?.[0]?.toUpperCase() || currentUserProfile?.username?.[0]?.toUpperCase() || (currentUserProfile?.id ? 'P' : '');
+  const avatarFallbackText = currentUserProfile?.full_name?.[0]?.toUpperCase() || currentUserProfile?.username?.[0]?.toUpperCase() || 'P';
   const isHomePage = pathname === '/';
-  const showCreateButton = currentUserProfile && !isHomePage; // Show "Create" if logged in and not on home
+  const showCreateButton = currentUserProfile && !isHomePage; 
 
   return (
     <header className="sticky top-0 z-40 w-full bg-background/90 backdrop-blur-md border-b border-border/80 shadow-sm">
@@ -195,7 +199,7 @@ export default function AppHeader() {
                       <div className='overflow-hidden flex-1'>
                         <p className="text-sm font-semibold truncate text-foreground">{currentUserProfile.full_name || currentUserProfile.username}</p>
                         {currentUserProfile.username && <p className="text-xs text-muted-foreground truncate">@{currentUserProfile.username}</p>}
-                         {supabase.auth.getUser() && <p className="text-xs text-muted-foreground truncate">{supabase.auth.getUser().then(u=>u.data.user?.email)}</p>}
+                         {currentUserEmail && <p className="text-xs text-muted-foreground truncate">{currentUserEmail}</p>}
                       </div>
                     </div>
                   </DropdownMenuItem>
@@ -204,25 +208,25 @@ export default function AppHeader() {
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="text-xs text-muted-foreground px-3 pt-1 pb-1">Your account</DropdownMenuLabel>
                   <Link href="/settings/profile" passHref>
-                      <DropdownMenuItem className="focus:bg-secondary/80"><Settings className="mr-2.5 h-4.5 w-4.5 text-muted-foreground" /> Settings</DropdownMenuItem>
+                      <DropdownMenuItem className="focus:bg-secondary/80"><Settings className="mr-2.5 h-4 w-4 text-muted-foreground" /> Settings</DropdownMenuItem>
                   </Link>
-                  <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><PlusSquare className="mr-2.5 h-4.5 w-4.5 text-muted-foreground" /> Add account</DropdownMenuItem>
+                  <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><PlusSquare className="mr-2.5 h-4 w-4 text-muted-foreground" /> Add account</DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator className="my-1.5"/>
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="text-xs text-muted-foreground px-3 pt-1 pb-1">More options</DropdownMenuLabel>
-                  <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><ExternalLink className="mr-2.5 h-4.5 w-4.5 text-muted-foreground" /> Tune your home feed</DropdownMenuItem>
-                   <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><LifeBuoy className="mr-2.5 h-4.5 w-4.5 text-muted-foreground" /> Get help</DropdownMenuItem>
-                  <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><FileText className="mr-2.5 h-4.5 w-4.5 text-muted-foreground" /> See terms of service</DropdownMenuItem>
-                  <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><ShieldCheck className="mr-2.5 h-4.5 w-4.5 text-muted-foreground" /> See privacy policy</DropdownMenuItem>
+                  <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><ExternalLink className="mr-2.5 h-4 w-4 text-muted-foreground" /> Tune your home feed</DropdownMenuItem>
+                   <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><LifeBuoy className="mr-2.5 h-4 w-4 text-muted-foreground" /> Get help</DropdownMenuItem>
+                  <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><FileText className="mr-2.5 h-4 w-4 text-muted-foreground" /> See terms of service</DropdownMenuItem>
+                  <DropdownMenuItem className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed" disabled><ShieldCheck className="mr-2.5 h-4 w-4 text-muted-foreground" /> See privacy policy</DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator className="my-1.5"/>
                 <DropdownMenuItem 
                   className="text-red-600 dark:text-red-500 focus:bg-red-50 dark:focus:bg-red-900/50 focus:text-red-700 dark:focus:text-red-400 cursor-pointer"
                   onClick={handleLogout}
-                  disabled={isLoadingUser} // Disable logout if already processing something
+                  disabled={isLoadingUser && !!currentUserProfile} 
                 >
-                  {isLoadingUser && currentUserProfile ? <Loader2 className="mr-2.5 h-4.5 w-4.5 animate-spin"/> : <LogOut className="mr-2.5 h-4.5 w-4.5" />}
+                  {isLoadingUser && !!currentUserProfile ? <Loader2 className="mr-2.5 h-4 w-4 animate-spin"/> : <LogOut className="mr-2.5 h-4 w-4" />}
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -237,4 +241,3 @@ export default function AppHeader() {
     </header>
   );
 }
-```

@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-// AppHeader is now rendered in AppClientLayout
 import PinGrid from '@/components/pin-grid';
 import type { Pin } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -129,4 +128,3 @@ export default function HomePage() {
     </main>
   );
 }
-```

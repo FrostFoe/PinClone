@@ -21,7 +21,7 @@ import PincloneLogo from '@/components/pinclone-logo';
 import { Home, PlusSquare, User, Settings, Search, LogIn, FileSignature, Compass } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
-import AppHeader from '@/components/app-header'; // Import AppHeader
+import AppHeader from '@/components/app-header';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 
@@ -44,19 +44,16 @@ export default function AppClientLayout({
         if (event === 'SIGNED_OUT' && !['/login', '/signup'].includes(pathname)) {
           router.push('/login');
         }
-        // If signed in and on login/signup, redirect to home
         if (event === 'SIGNED_IN' && ['/login', '/signup'].includes(pathname)) {
           router.push('/');
         }
       }
     );
-    // Initial check
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
       setIsLoadingAuth(false);
       if (!session && !['/login', '/signup', '/'].includes(pathname) && !pathname.startsWith('/pin/') && !pathname.startsWith('/u/')) {
-        // Allow public access to home, pin details, and user profiles
-        // Redirect other protected routes
         if (!['/', '/search'].includes(pathname) && !pathname.startsWith('/pin/') && !pathname.startsWith('/u/')) {
            router.push('/login');
         }
@@ -70,7 +67,7 @@ export default function AppClientLayout({
 
   const navItems = [
     { href: '/', label: 'Home', icon: Home, exact: true },
-    { href: '/search', label: 'Explore', icon: Search }, // Explore/Search page
+    { href: '/search', label: 'Explore', icon: Search },
     { href: '/create', label: 'Create', icon: PlusSquare, authRequired: true },
     { href: '/profile', label: 'Profile', icon: User, authRequired: true },
   ];
@@ -80,7 +77,7 @@ export default function AppClientLayout({
   ];
 
   const isAuthPage = pathname === '/login' || pathname === '/signup';
-  const isNotFoundPage = pathname === '/not-found'; // Assuming /not-found is your 404 route
+  const isNotFoundPage = pathname === '/not-found'; 
 
   if (isAuthPage || isNotFoundPage) {
     return (
@@ -184,7 +181,7 @@ export default function AppClientLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="flex flex-col bg-background">
-         <AppHeader /> {/* AppHeader is now part of the main content area */}
+         <AppHeader />
         {children}
         <Button variant="outline" size="icon" className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-card shadow-lg z-50 hover:bg-muted focus-ring border-2 border-primary/50 hover:border-primary text-primary hover:text-primary/90" aria-label="Help & Support">
           <Compass className="h-7 w-7" />
@@ -194,4 +191,3 @@ export default function AppClientLayout({
     </SidebarProvider>
   );
 }
-```
