@@ -1,12 +1,12 @@
 export interface Profile {
   id: string; // Corresponds to auth.users.id
-  username: string; // Now NOT NULL in DB
+  username: string; // NOT NULL in DB
   full_name: string | null;
   avatar_url: string | null;
   bio: string | null;
   website: string | null;
-  created_at: string;
-  updated_at: string; // Added
+  created_at: string; // Timestamps are expected to be non-null strings (ISO 8601)
+  updated_at: string; // Timestamps are expected to be non-null strings (ISO 8601)
 }
 
 export interface Pin {
@@ -15,8 +15,8 @@ export interface Pin {
   image_url: string;
   title: string | null;
   description: string | null;
-  created_at: string;
-  updated_at: string; // Added
+  created_at: string; // Timestamps are expected to be non-null strings (ISO 8601)
+  updated_at: string; // Timestamps are expected to be non-null strings (ISO 8601)
   width: number; // NOT NULL in DB
   height: number; // NOT NULL in DB
   uploader: Pick<Profile, "username" | "avatar_url" | "full_name">;
@@ -29,15 +29,13 @@ export interface PinWithUploaderFromSupabase {
   image_url: string;
   title: string | null;
   description: string | null;
-  created_at: string;
-  updated_at: string; // Added
+  created_at: string; // Timestamps are expected to be non-null strings (ISO 8601)
+  updated_at: string; // Timestamps are expected to be non-null strings (ISO 8601)
   width: number; // NOT NULL in DB
   height: number; // NOT NULL in DB
-  uploader_profile: { // Renamed from profiles to match query alias
+  uploader_profile: {
     username: string; // From DB, NOT NULL
     avatar_url: string | null;
     full_name: string | null;
   };
 }
-
-// Tags, Comments, Likes, Boards are removed as per the simplified schema.
