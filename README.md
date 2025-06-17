@@ -13,10 +13,22 @@ This is a Next.js starter project for Pinclone, integrated with Supabase for bac
     - **Important**: The script includes `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` commands. These will delete your existing `public` schema and all its data. Ensure you have backups if needed or remove these lines if applying to an existing schema you wish to preserve and modify.
     - Copy its entire content and paste it into the Supabase SQL Editor.
     - Run the script to create all necessary tables, indexes, RLS policies, and triggers.
-    - **Storage Buckets**:
-      - The SQL script includes comments in "SECTION 7" with guidance and example RLS for creating `pins` and `avatars` storage buckets. Please review these and set up your buckets accordingly in the Supabase Storage UI.
-    - Review and ensure Row Level Security (RLS) policies (defined in `sql/schema.sql`) are active for your tables.
-    - **Refresh Schema Cache**: After running the SQL script, it's crucial to refresh Supabase's schema cache. You can often do this in the Supabase Dashboard (e.g., API section -> "Reload schema") or by making a minor, trivial change to a table via the UI (like adding/removing a column comment) and saving.
+    - **Storage Buckets (Crucial for Image Uploads):**
+        - You **MUST** create two Storage buckets in your Supabase project dashboard:
+            1.  Bucket Name: `pins`
+                - This bucket will store the images uploaded for pins.
+                - You can set it as a "Public" bucket if you want images to be directly accessible via URL.
+            2.  Bucket Name: `avatars`
+                - This bucket will store user profile pictures.
+                - You can also set this as a "Public" bucket.
+        - To create buckets:
+            - In your Supabase project, go to "Storage" in the sidebar.
+            - Click "Create new bucket".
+            - Enter the name (`pins` or `avatars`).
+            - Choose if it's public or private. For simplicity in this app, making them public is easier to start with.
+            - **RLS for Storage Buckets**: After creating the buckets, you should apply Row Level Security policies to them for fine-grained access control. The `sql/schema.sql` file includes comments in "SECTION 7" with guidance and example RLS policies. Review these and adapt them as needed for your `pins` and `avatars` buckets in the Supabase Storage UI or by running equivalent SQL commands.
+    - Review and ensure Row Level Security (RLS) policies (defined in `sql/schema.sql` for database tables) are active for your tables.
+    - **Refresh Schema Cache**: After running the SQL script and creating buckets, it's crucial to refresh Supabase's schema cache. You can often do this in the Supabase Dashboard (e.g., API section -> "Reload schema") or by making a minor, trivial change to a table via the UI (like adding/removing a column comment) and saving.
 
 2.  **Environment Variables:**
 
