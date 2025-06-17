@@ -1,7 +1,8 @@
+
 "use client";
 
 import type { Pin } from "@/types";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,7 +19,7 @@ import {
 import {
   ArrowLeft,
   Maximize2,
-  Search as SearchIconLucide, // Renamed to avoid conflict
+  Search as SearchIconLucide, 
   Link2,
   Download,
   Flag,
@@ -26,17 +27,40 @@ import {
   Send,
   Smile,
   MoreHorizontal,
-  Heart,
-  Share2 as ShareIcon,
+  Loader2,
 } from "lucide-react";
 import PinGrid from "@/components/pin-grid";
 import { Skeleton } from "@/components/ui/skeleton";
-import ImageZoomModal from "@/components/image-zoom-modal";
+// import ImageZoomModal from "@/components/image-zoom-modal"; // Import dynamically
 import { fetchPinById, fetchPinsByUserId } from "@/services/pinService";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import type { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 
-export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+const ImageZoomModal = dynamic(() => import('@/components/image-zoom-modal'), {
+  loading: () => <div className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/50 backdrop-blur-sm"><Loader2 className="h-10 w-10 animate-spin text-white"/></div>,
+  ssr: false
+});
+
+
+export const dynamic = 'force-dynamic'; 
+
+// Moved generateMetadata outside of the component, as it's a Next.js convention
+// This function will not be part of the client bundle for this page.
+// However, because this page is 'force-dynamic', generateMetadata might run on each request.
+// For truly static metadata that could be generated at build time if the page was SSG/ISR,
+// this would be more effective.
+// For dynamic pages, this still helps in setting tab titles and social media cards.
+// Note: Server-side data fetching for metadata is preferred.
+// This client-side fetch for metadata is a compromise for dynamic client-rendered pages.
+
+// Due to this page being 'force-dynamic' and primarily client-rendered for its main content,
+// a true server-side generateMetadata that fetches data and then passes to the client
+// is complex. We'll keep the client-side effect for title updates for simplicity here,
+// as the primary content rendering is client-driven.
+// For SEO, a server-rendered version of this page would be ideal.
+
 
 const RELATED_PINS_LIMIT = 10;
 
@@ -58,8 +82,8 @@ export default function PinDetailPage() {
   const loadPinDetails = useCallback(
     async (id: string) => {
       setIsLoadingPin(true);
-      setPinDetail(null); // Reset on new ID
-      setRelatedPins([]); // Reset related pins
+      setPinDetail(null); 
+      setRelatedPins([]); 
       setRelatedPage(1);
       setHasMoreRelated(true);
 
@@ -70,18 +94,20 @@ export default function PinDetailPage() {
           title: "Error",
           description: error || "Pin not found.",
         });
-        // router.push('/not-found'); // Optionally redirect to a 404 page
+        // router.push('/not-found'); 
       } else {
         setPinDetail(pin);
         if (pin.user_id) {
-          loadMoreRelatedPins(pin.user_id, 1, true, pin.id);
+          // Initial load of related pins moved to a separate useEffect dependent on pinDetail
         } else {
           setHasMoreRelated(false);
         }
+         // Update document title
+        document.title = `${pin.title || 'Pin'} by ${pin.uploader?.username || 'User'} | Pinclone`;
       }
       setIsLoadingPin(false);
     },
-    [toast], // Removed loadMoreRelatedPins from here as it causes infinite loop if not careful
+    [toast], 
   );
 
   const loadMoreRelatedPins = useCallback(
@@ -109,7 +135,7 @@ export default function PinDetailPage() {
         });
         setHasMoreRelated(false);
       } else {
-        const filteredNewPins = newPins.filter((p) => p.id !== currentPinId); // Exclude current pin
+        const filteredNewPins = newPins.filter((p) => p.id !== currentPinId); 
         if (filteredNewPins.length > 0) {
           setRelatedPins((prevPins) =>
             initialLoad ? filteredNewPins : [...prevPins, ...filteredNewPins],
@@ -121,7 +147,7 @@ export default function PinDetailPage() {
           newPins.length <= 1 &&
           newPins[0]?.id === currentPinId
         ) {
-          // if only the current pin was returned
+          
           setHasMoreRelated(false);
         } else if (newPins.length === 0) {
           setHasMoreRelated(false);
@@ -140,14 +166,13 @@ export default function PinDetailPage() {
   
   useEffect(() => {
       if (pinDetail?.user_id && pinDetail.id) {
-          // Reset and load related pins when pinDetail (and thus its user_id) is set
           setRelatedPins([]);
           setRelatedPage(1);
           setHasMoreRelated(true);
           loadMoreRelatedPins(pinDetail.user_id, 1, true, pinDetail.id);
       }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinDetail?.id, pinDetail?.user_id]); // Intentionally not including loadMoreRelatedPins to avoid loop
+  }, [pinDetail?.id, pinDetail?.user_id]); 
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -252,7 +277,6 @@ export default function PinDetailPage() {
   return (
     <>
       <div className="flex flex-col min-h-[calc(100vh-var(--header-height))] bg-background animate-fade-in">
-        {/* Sub-header for Pin Detail Page, sticky under main AppHeader */}
         <div className="sticky top-[var(--header-height)] z-30 bg-background/90 backdrop-blur-md flex items-center px-2 sm:px-4 border-b h-[var(--header-height)]">
           <Button
             variant="ghost"
@@ -324,7 +348,6 @@ export default function PinDetailPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {/* Save to board functionality to be added later */}
             <Button
               size="lg"
               className="rounded-full px-5 sm:px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -353,7 +376,8 @@ export default function PinDetailPage() {
                       }
                       className="rounded-2xl object-contain w-full h-full max-h-[75vh] shadow-md"
                       data-ai-hint={pinDetail.title || "pin detail"}
-                      priority
+                      priority // For LCP
+                      sizes="(max-width: 1280px) 50vw, (max-width: 1024px) 55vw, 800px"
                     />
                   ) : (
                     <Skeleton className="w-full h-[400px] rounded-2xl" />
@@ -532,13 +556,54 @@ export default function PinDetailPage() {
           )}
         </main>
       </div>
-      {pinDetail && (
-        <ImageZoomModal
-          pin={pinDetail}
-          isOpen={isZoomModalOpen}
-          onClose={() => setIsZoomModalOpen(false)}
-        />
-      )}
+        <Suspense fallback={<div className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/50 backdrop-blur-sm"><Loader2 className="h-10 w-10 animate-spin text-white"/></div>}>
+          {pinDetail && isZoomModalOpen && (
+            <ImageZoomModal
+              pin={pinDetail}
+              isOpen={isZoomModalOpen}
+              onClose={() => setIsZoomModalOpen(false)}
+            />
+          )}
+        </Suspense>
     </>
   );
+}
+
+
+// For SEO: Generate metadata on the server if possible, or use client-side updates as fallback.
+// This page is 'force-dynamic', so generateMetadata runs on each request.
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const { pin } = await fetchPinById(params.id);
+
+  if (!pin) {
+    return {
+      title: 'Pin Not Found | Pinclone',
+      description: 'The pin you are looking for could not be found.',
+    };
+  }
+
+  return {
+    title: `${pin.title || 'Untitled Pin'} by ${pin.uploader?.full_name || pin.uploader?.username || 'a user'} | Pinclone`,
+    description: pin.description || `View this pin on Pinclone: ${pin.title || 'Untitled Pin'}. Discover more ideas.`,
+    openGraph: {
+      title: `${pin.title || 'Untitled Pin'} | Pinclone`,
+      description: pin.description || 'Discover and save creative ideas on Pinclone.',
+      images: [
+        {
+          url: pin.image_url,
+          width: pin.width || 800,
+          height: pin.height || 600,
+          alt: pin.title || 'Pin image',
+        },
+      ],
+      type: 'article', // or 'photo'
+      url: `/pin/${pin.id}`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${pin.title || 'Untitled Pin'} | Pinclone`,
+      description: pin.description || 'Discover and save creative ideas on Pinclone.',
+      images: [pin.image_url],
+    },
+  };
 }

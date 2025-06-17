@@ -1,14 +1,15 @@
+
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import type { Pin } from "@/types";
 import { cn } from "@/lib/utils";
-import { Heart, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
-import { useState } from "react";
+import { useState, memo } from "react"; // Import memo
 
 interface PinCardProps {
   pin: Pin;
@@ -18,7 +19,7 @@ interface PinCardProps {
   priority?: boolean;
 }
 
-export default function PinCard({
+const PinCard = memo(function PinCard({ // Wrap component with memo
   pin,
   onClick,
   className,
@@ -68,22 +69,22 @@ export default function PinCard({
         priority={priority}
         data-ai-hint={pin.title || "pin image"}
         onLoad={() => setIsImageLoading(false)}
-        onError={() => setIsImageLoading(false)} // Handle error case, maybe show placeholder
-        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" // Example sizes, adjust as needed
+        onError={() => setIsImageLoading(false)} 
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" 
       />
       {showDetails &&
         pin.uploader &&
-        !isImageLoading && ( // Only show details if image loaded
+        !isImageLoading && ( 
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3 text-white">
             <div className="flex justify-end items-start">
-              {/* Future: More options button for save, hide, report */}
               <Button
                 variant="secondary"
                 size="icon"
                 className="bg-white/20 hover:bg-white/30 text-white rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
-                  e.stopPropagation(); /* handle more options */
+                  e.stopPropagation(); 
                 }}
+                aria-label="More options"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -114,13 +115,6 @@ export default function PinCard({
                   {pin.uploader.full_name || pin.uploader.username}
                 </span>
               </Link>
-              {/* Likes feature placeholder
-            {pin.likes !== undefined && (
-              <div className="flex items-center gap-0.5">
-                <Heart className="h-3.5 w-3.5 fill-white stroke-white" />
-                <span>{pin.likes}</span>
-              </div>
-            )} */}
             </div>
           </div>
         )}
@@ -140,4 +134,6 @@ export default function PinCard({
       {content}
     </Link>
   );
-}
+});
+
+export default PinCard;

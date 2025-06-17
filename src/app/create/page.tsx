@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -13,10 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createPin } from "@/services/pinService";
 import Image from "next/image";
-import { UploadCloud, XCircle, Loader2, ImagePlus } from "lucide-react";
+import { UploadCloud, XCircle, Loader2 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
-export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+export const dynamic = 'force-dynamic'; 
 
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -108,12 +109,21 @@ export default function CreatePinPage() {
       };
       reader.readAsDataURL(file);
 
-      // Get image dimensions
       const img = document.createElement("img");
       img.onload = () => {
-        setImageDimensions({ width: img.width, height: img.height });
+        setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
       };
+      img.onerror = () => {
+        console.error("Error loading image for dimensions.");
+        setImageDimensions(null);
+      }
       img.src = URL.createObjectURL(file);
+
+      return () => { // Cleanup
+        if (img.src.startsWith('blob:')) {
+            URL.revokeObjectURL(img.src);
+        }
+      };
     } else {
       setImagePreview(null);
       setImageDimensions(null);
@@ -125,12 +135,14 @@ export default function CreatePinPage() {
       !currentUser ||
       !data.imageFile ||
       data.imageFile.length === 0 ||
-      !imageDimensions
+      !imageDimensions ||
+      imageDimensions.width === 0 || // Ensure dimensions are valid
+      imageDimensions.height === 0
     ) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "User not authenticated or image data missing.",
+        description: "User not authenticated or image data (including dimensions) missing or invalid.",
       });
       return;
     }
@@ -143,7 +155,7 @@ export default function CreatePinPage() {
 
     try {
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("pins") // Ensure 'pins' bucket exists and has RLS for uploads
+        .from("pins") 
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
@@ -172,7 +184,6 @@ export default function CreatePinPage() {
         await createPin(pinDetails);
 
       if (createPinError || !createdPin) {
-        // Attempt to delete uploaded image if pin creation fails
         await supabase.storage.from("pins").remove([filePath]);
         throw new Error(createPinError || "Failed to save pin details.");
       }
@@ -198,7 +209,6 @@ export default function CreatePinPage() {
   };
 
   if (!currentUser) {
-    // This case is mostly handled by useEffect redirect, but good for initial render
     return (
       <div className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -224,7 +234,6 @@ export default function CreatePinPage() {
           className="bg-card p-6 sm:p-8 rounded-2xl shadow-xl space-y-8"
         >
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-            {/* Image Upload Section */}
             <div className="lg:w-1/2 flex flex-col items-center">
               <Controller
                 name="imageFile"
@@ -241,8 +250,9 @@ export default function CreatePinPage() {
                           <Image
                             src={imagePreview}
                             alt="Pin preview"
-                            layout="fill"
-                            objectFit="cover"
+                            fill // Use fill for aspect ratio container
+                            sizes="(max-width: 1023px) 100vw, 50vw"
+                            style={{ objectFit: 'cover' }}
                             className="rounded-xl"
                           />
                           <Button
@@ -284,15 +294,6 @@ export default function CreatePinPage() {
                         className="hidden"
                         onChange={(e) => {
                           onChange(e.target.files);
-                          if (e.target.files && e.target.files.length > 0) {
-                            const img = document.createElement("img");
-                            img.onload = () =>
-                              setImageDimensions({
-                                width: img.width,
-                                height: img.height,
-                              });
-                            img.src = URL.createObjectURL(e.target.files[0]);
-                          }
                         }}
                         onBlur={onBlur}
                         name={name}
@@ -310,7 +311,6 @@ export default function CreatePinPage() {
               )}
             </div>
 
-            {/* Text Details Section */}
             <div className="lg:w-1/2 space-y-6">
               <div>
                 <Label
@@ -390,7 +390,8 @@ export default function CreatePinPage() {
                 isSubmitting ||
                 !imageFile ||
                 imageFile.length === 0 ||
-                !!errors.imageFile
+                !!errors.imageFile ||
+                !imageDimensions || imageDimensions.width === 0 || imageDimensions.height === 0
               }
             >
               {(isUploading || isSubmitting) && (

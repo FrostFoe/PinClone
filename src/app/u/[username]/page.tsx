@@ -1,8 +1,8 @@
+
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-// AppHeader is global
 import PinGrid from "@/components/pin-grid";
 import type { Pin, Profile } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { fetchProfileByUsername } from "@/services/profileService";
 import { fetchPinsByUserId } from "@/services/pinService";
+import type { Metadata } from 'next';
 
-export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+export const dynamic = 'force-dynamic'; 
 
 const PINS_PER_PAGE = 18;
 
@@ -39,7 +40,7 @@ export default function UserPublicProfilePage() {
   const [hasMorePins, setHasMorePins] = useState(true);
   const pinsLoaderRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState("created");
-  const [isFollowing, setIsFollowing] = useState(false); // Mock follow state
+  const [isFollowing, setIsFollowing] = useState(false); 
 
   const loadMorePins = useCallback(
     async (
@@ -60,7 +61,6 @@ export default function UserPublicProfilePage() {
           PINS_PER_PAGE,
         );
       } else {
-        // Placeholder for 'saved' pins
         fetchedData = { pins: [], error: null };
         setHasMorePins(false);
       }
@@ -92,7 +92,7 @@ export default function UserPublicProfilePage() {
   const loadUserProfile = useCallback(
     async (uname: string) => {
       setIsLoadingUser(true);
-      setUserData(null); // Reset on new username
+      setUserData(null); 
       setPins([]);
       setPinsPage(1);
       setHasMorePins(true);
@@ -104,14 +104,14 @@ export default function UserPublicProfilePage() {
           title: "User Not Found",
           description: error || `Profile for @${uname} could not be loaded.`,
         });
-        // router.push('/not-found'); // Or handle inline
       } else {
         setUserData(profile);
-        // Initial pin load moved to effect below, dependent on userData and activeTab
+         // Update document title
+        document.title = `${profile.full_name || profile.username}'s Profile | Pinclone`;
       }
       setIsLoadingUser(false);
     },
-    [toast], // Removed loadMorePins and activeTab from here to simplify initial load flow
+    [toast], 
   );
 
   useEffect(() => {
@@ -121,15 +121,14 @@ export default function UserPublicProfilePage() {
   }, [username, loadUserProfile]);
 
   useEffect(() => {
-    // This effect runs when userData or activeTab changes, to load/reload pins
     if (userData?.id) {
-      setPins([]); // Reset pins
-      setPinsPage(1); // Reset page
-      setHasMorePins(true); // Reset hasMore
+      setPins([]); 
+      setPinsPage(1); 
+      setHasMorePins(true); 
       loadMorePins(userData.id, 1, true, activeTab);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData?.id, activeTab]); // loadMorePins is stable due to useCallback
+  }, [userData?.id, activeTab]); 
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -165,7 +164,7 @@ export default function UserPublicProfilePage() {
     router.push(`/pin/${pin.id}`);
   };
 
-  const handleFollowToggle = () => setIsFollowing(!isFollowing); // Mock
+  const handleFollowToggle = () => setIsFollowing(!isFollowing); 
 
   if (isLoadingUser) {
     return (
@@ -221,12 +220,12 @@ export default function UserPublicProfilePage() {
     );
   }
 
-  const coverPhotoUrl = `https://placehold.co/1600x400.png`; // Generic placeholder
+  const coverPhotoUrl = `https://placehold.co/1600x400.png`; 
 
   return (
     <div className="flex-1 flex flex-col animate-fade-in-up pt-8">
       {" "}
-      {/* pt-8 to account for AppHeader */}
+      
       <div
         className="h-48 sm:h-64 bg-cover bg-center relative"
         style={{ backgroundImage: `url(${coverPhotoUrl})` }}
@@ -382,4 +381,45 @@ export default function UserPublicProfilePage() {
       </div>
     </div>
   );
+}
+
+// For SEO: Generate metadata on the server
+export async function generateMetadata({ params }: { params: { username: string } }): Promise<Metadata> {
+  const { profile } = await fetchProfileByUsername(params.username);
+
+  if (!profile) {
+    return {
+      title: 'User Not Found | Pinclone',
+      description: 'The user profile you are looking for could not be found.',
+    };
+  }
+
+  const title = `${profile.full_name || profile.username}'s Profile | Pinclone`;
+  const description = profile.bio || `View ${profile.full_name || profile.username}'s profile on Pinclone. Discover their pins and ideas.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: profile.avatar_url ? [
+        {
+          url: profile.avatar_url,
+          width: 128, // Assuming typical avatar sizes, adjust if known
+          height: 128,
+          alt: `${profile.full_name || profile.username}'s avatar`,
+        },
+      ] : [],
+      type: 'profile',
+      username: profile.username || undefined,
+      url: `/u/${profile.username}`,
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+      images: profile.avatar_url ? [profile.avatar_url] : [],
+    },
+  };
 }

@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -10,8 +11,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ["PT Sans", "sans-serif"],
-        headline: ["Poppins", "sans-serif"],
+        // Use CSS variables defined by next/font
+        body: ["var(--font-pt-sans)", "sans-serif"],
+        headline: ["var(--font-poppins)", "sans-serif"],
         code: ["monospace"],
       },
       colors: {
@@ -28,12 +30,12 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          hover: "hsl(var(--primary) / 0.9)", // For hover states on primary buttons
+          hover: "hsl(var(--primary) / 0.9)", 
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
-          hover: "hsl(var(--secondary) / 0.8)", // For hover states
+          hover: "hsl(var(--secondary) / 0.8)", 
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -50,7 +52,7 @@ export default {
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))", // Used for focus rings
+        ring: "hsl(var(--ring))", 
         chart: {
           "1": "hsl(var(--chart-1))",
           "2": "hsl(var(--chart-2))",
@@ -70,17 +72,17 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)", // 0.5rem
-        md: "calc(var(--radius) - 2px)", // 0.375rem
-        sm: "calc(var(--radius) - 4px)", // 0.25rem
-        xl: "calc(var(--radius) + 4px)", // 0.75rem
-        "2xl": "calc(var(--radius) + 8px)", // 1rem
-        "3xl": "calc(var(--radius) + 16px)", // 1.5rem (for larger cards like Pin Detail)
+        lg: "var(--radius)", 
+        md: "calc(var(--radius) - 2px)", 
+        sm: "calc(var(--radius) - 4px)", 
+        xl: "calc(var(--radius) + 4px)", 
+        "2xl": "calc(var(--radius) + 8px)", 
+        "3xl": "calc(var(--radius) + 16px)", 
         full: "9999px",
       },
       spacing: {
-        "grid-gap": "var(--grid-gap)", // 16px
-        "header-height": "var(--header-height)", // 64px
+        "grid-gap": "var(--grid-gap)", 
+        "header-height": "var(--header-height)", 
       },
       boxShadow: {
         subtle:

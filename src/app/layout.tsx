@@ -4,6 +4,21 @@ import { Suspense } from 'react';
 import AppClientLayout from "./app-client-layout";
 import "./globals.css";
 import { Loader2 } from 'lucide-react';
+import { Poppins, PT_Sans } from 'next/font/google';
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-poppins',
+});
+
+const ptSans = PT_Sans({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '700'],
+  variable: '--font-pt-sans',
+});
 
 export const metadata: Metadata = {
   title: "Pinclone | Your Visual Discovery Engine",
@@ -49,22 +64,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${poppins.variable} ${ptSans.variable}`} suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400&display=swap"
-          rel="stylesheet"
-        />
+        {/* Removed direct Google Font links, next/font handles this */}
       </head>
       <body>
         <Suspense fallback={<LayoutSuspenseFallback />}>
