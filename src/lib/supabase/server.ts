@@ -1,3 +1,4 @@
+
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/supabase";
@@ -5,12 +6,18 @@ import type { Database } from "@/types/supabase";
 // For Server Components, Server Actions, and Route Handlers
 export function createSupabaseServerClient() {
   const cookieStore = cookies();
-   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    // This error might not be catchable if used directly in top-level server component
-    // It's better if this check is done where the client is instantiated or at app startup.
-    // However, for robustness, include it.
-    console.error("Supabase URL or Anon Key is missing from environment variables for server client.");
-    throw new Error("Supabase server configuration error.");
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    const errorMessage =
+      "CRITICAL: Supabase URL or Anon Key is MISSING from environment variables. " +
+      "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your .env.local file (and for your deployment). " +
+      "You MUST restart your Next.js development server after adding/changing .env.local.";
+    console.error(`\n\n${"=".repeat(60)}\n${errorMessage}\n${"=".repeat(60)}\n\n`);
+    throw new Error(
+      "Supabase server configuration error: Environment variables missing. Check server logs.",
+    );
   }
 
   return createServerClient<Database>(
@@ -47,9 +54,18 @@ export function createSupabaseServerClient() {
 // Specifically for Route Handlers (e.g., API routes)
 export function createSupabaseRouteHandlerClient() {
   const cookieStore = cookies();
-   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.error("Supabase URL or Anon Key is missing for Route Handler client.");
-    throw new Error("Supabase Route Handler configuration error.");
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    const errorMessage =
+      "CRITICAL: Supabase URL or Anon Key is MISSING for Route Handler client. " +
+      "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your .env.local file (and for your deployment). " +
+      "You MUST restart your Next.js development server after adding/changing .env.local.";
+    console.error(`\n\n${"=".repeat(60)}\n${errorMessage}\n${"=".repeat(60)}\n\n`);
+    throw new Error(
+      "Supabase Route Handler configuration error: Environment variables missing. Check server logs.",
+    );
   }
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

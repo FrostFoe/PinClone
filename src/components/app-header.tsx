@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -8,11 +9,6 @@ import {
   MessageCircle,
   Settings,
   LogOut,
-  // PlusSquare, // Can be removed if Create button is always visible or handled differently
-  // ExternalLink,
-  // LifeBuoy,
-  // FileText,
-  // ShieldCheck,
   GripVertical,
   Loader2,
 } from "lucide-react";
@@ -35,13 +31,13 @@ import { useEffect, useState } from "react";
 import type { Profile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import PincloneLogo from "./pinclone-logo";
-import { signOutClient } from "@/lib/auth/client"; // Client-side function
+import { signOutClient } from "@/lib/auth/client"; 
 
 export default function AppHeader() {
   const { isMobile, toggleSidebar } = useSidebar();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParamsHook = useSearchParams(); // Renamed to avoid conflict with internal 'searchParams'
+  const searchParamsHook = useSearchParams(); 
   const supabase = createSupabaseBrowserClient();
   const { toast } = useToast();
 
@@ -67,15 +63,14 @@ export default function AppHeader() {
           .eq("id", userId)
           .single();
 
-        if (error && error.code !== "PGRST116") { // PGRST116: No rows found, common for new users
-          console.error('Error fetching profile in AppHeader:', error);
-          // Toasting here might be too noisy on every load if profile is missing temporarily
-          // toast({ variant: 'destructive', title: 'Error fetching profile', description: error.message });
+        if (error && error.code !== "PGRST116") { 
+          // PGRST116: No rows found, common for new users.
+          // Error handling for profile fetching can be done elsewhere if critical,
+          // or this can remain silent to avoid UI noise on transient issues.
         }
         setCurrentUserProfile(profileData as Profile | null);
       } catch (e) {
-        console.error('Exception fetching profile in AppHeader:', e);
-        // toast({ variant: 'destructive', title: 'Error fetching profile', description: 'An unexpected error occurred.'});
+        // Catch unexpected errors during profile fetch
       }
     };
 
@@ -108,7 +103,7 @@ export default function AppHeader() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, toast]);
+  }, [supabase]); // Removed toast from dependencies as it's stable
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -125,9 +120,6 @@ export default function AppHeader() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
-      // AppClientLayout's onAuthStateChange will handle redirect and state update.
-      // router.push('/login'); // This might conflict if AppClientLayout also tries to redirect
-      // router.refresh(); // Let AppClientLayout handle refresh on SIGNED_OUT event
     }
   };
 
@@ -136,11 +128,10 @@ export default function AppHeader() {
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     } else {
-      // If search is cleared, navigate to search base page or clear results client-side
       if (pathname === "/search") {
-        router.push("/search"); // Clears query param from URL if already on search page
+        router.push("/search"); 
       } else {
-        router.push("/search"); // Navigates to search page if search is cleared from another page
+        router.push("/search"); 
       }
     }
   };
@@ -148,7 +139,7 @@ export default function AppHeader() {
   const avatarFallbackText =
     currentUserProfile?.full_name?.[0]?.toUpperCase() ||
     currentUserProfile?.username?.[0]?.toUpperCase() ||
-    currentUserEmail?.[0]?.toUpperCase() || // Fallback to email initial if profile not loaded yet
+    currentUserEmail?.[0]?.toUpperCase() || 
     "P";
   const isHomePage = pathname === "/";
 
@@ -184,9 +175,9 @@ export default function AppHeader() {
           >
             Home
           </Button>
-           {currentUserProfile && ( // Show Create button if user is logged in
+           {currentUserProfile && ( 
             <Button
-              variant="ghost" // Can be 'default' or other variant if more prominent
+              variant="ghost" 
               size="default"
               className="rounded-full px-4 font-medium text-base text-foreground hover:bg-secondary hidden md:inline-flex"
               onClick={() => router.push("/create")}
@@ -234,7 +225,7 @@ export default function AppHeader() {
 
           {isLoadingUser ? (
             <Skeleton className="h-10 w-10 rounded-full" />
-          ) : currentUserProfile || currentUserEmail ? ( // Check for email as well, as profile might lag
+          ) : currentUserProfile || currentUserEmail ? ( 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
