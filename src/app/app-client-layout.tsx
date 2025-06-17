@@ -26,11 +26,17 @@ import {
   LogIn,
   FileSignature,
   Compass,
+  Loader2,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import AppHeader from "@/components/app-header";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+
+const AUTH_ROUTES = ["/login", "/signup"];
+const PROTECTED_ROUTES_EXCEPTIONS = ["/", "/search"]; // Publicly accessible, even if not logged in
+const PIN_DETAIL_REGEX = /^\/pin\/[a-zA-Z0-9-]+$/;
+const USER_PROFILE_REGEX = /^\/u\/[a-zA-Z0-9_.-]+$/;
 
 export default function AppClientLayout({
   children,
@@ -44,51 +50,73 @@ export default function AppClientLayout({
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setCurrentUser(session?.user ?? null);
-        setIsLoadingAuth(false);
-        if (
-          event === "SIGNED_OUT" &&
-          !["/login", "/signup"].includes(pathname)
-        ) {
-          router.push("/login");
-        }
-        if (event === "SIGNED_IN" && ["/login", "/signup"].includes(pathname)) {
-          router.push("/");
-        }
-      },
-    );
+    const {
+      data: { subscription: authListener },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const newCurrentUser = session?.user ?? null;
+      setCurrentUser(newCurrentUser);
+      setIsLoadingAuth(false); // Auth state determined
 
+      if (event === "SIGNED_IN") {
+        if (AUTH_ROUTES.includes(pathname)) {
+          router.push("/"); // Redirect from login/signup to home
+        }
+        router.refresh(); // Refresh to potentially update server components
+      } else if (event === "SIGNED_OUT") {
+        if (AUTH_ROUTES.includes(pathname)) {
+           // Already on an auth page, do nothing or refresh
+           router.refresh();
+        } else if (
+          !PROTECTED_ROUTES_EXCEPTIONS.includes(pathname) &&
+          !PIN_DETAIL_REGEX.test(pathname) &&
+          !USER_PROFILE_REGEX.test(pathname)
+        ) {
+          router.push("/login"); // Redirect to login from protected areas
+        } else {
+          router.refresh(); // Refresh public pages that might show user-specific content
+        }
+      }
+    });
+
+    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user ?? null);
+      const initialUser = session?.user ?? null;
+      setCurrentUser(initialUser);
       setIsLoadingAuth(false);
-      if (
-        !session &&
-        !["/login", "/signup", "/"].includes(pathname) &&
-        !pathname.startsWith("/pin/") &&
-        !pathname.startsWith("/u/")
-      ) {
+
+      if (!initialUser) {
         if (
-          !["/", "/search"].includes(pathname) &&
-          !pathname.startsWith("/pin/") &&
-          !pathname.startsWith("/u/")
+          !AUTH_ROUTES.includes(pathname) &&
+          !PROTECTED_ROUTES_EXCEPTIONS.includes(pathname) &&
+          !PIN_DETAIL_REGEX.test(pathname) &&
+          !USER_PROFILE_REGEX.test(pathname)
         ) {
           router.push("/login");
+        }
+      } else {
+        // User is logged in
+        if (AUTH_ROUTES.includes(pathname)) {
+          router.push("/"); // If logged in and on auth page, redirect to home
         }
       }
     });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      authListener.unsubscribe();
     };
   }, [supabase, pathname, router]);
 
+
   const navItems = [
     { href: "/", label: "Home", icon: Home, exact: true },
-    { href: "/search", label: "Explore", icon: Search },
+    { href: "/search", label: "Explore", icon: Search }, // Explore is search users
     { href: "/create", label: "Create", icon: PlusSquare, authRequired: true },
-    { href: "/profile", label: "Profile", icon: User, authRequired: true },
+    {
+      href: "/profile", // This will be the current user's profile
+      label: "Profile",
+      icon: User,
+      authRequired: true,
+    },
   ];
 
   const footerNavItems = [
@@ -100,9 +128,20 @@ export default function AppClientLayout({
     },
   ];
 
-  const isAuthPage = pathname === "/login" || pathname === "/signup";
-  const isNotFoundPage = pathname === "/not-found";
+  const isAuthPage = AUTH_ROUTES.includes(pathname);
+  const isNotFoundPage = pathname === "/not-found"; // Assuming you have a /not-found route for custom 404
 
+  if (isLoadingAuth) {
+    return (
+      <>
+        <div className="flex items-center justify-center min-h-screen bg-background">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+        <Toaster />
+      </>
+    );
+  }
+  
   if (isAuthPage || isNotFoundPage) {
     return (
       <>
@@ -112,16 +151,6 @@ export default function AppClientLayout({
     );
   }
 
-  if (isLoadingAuth) {
-    return (
-      <>
-        <div className="flex items-center justify-center min-h-screen bg-background">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-        <Toaster />
-      </>
-    );
-  }
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -149,7 +178,7 @@ export default function AppClientLayout({
                 : pathname.startsWith(item.href);
               return (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
+                   <SidebarMenuButton
                     asChild
                     tooltip={{
                       children: item.label,

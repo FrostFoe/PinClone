@@ -6,7 +6,6 @@ import {
   Search,
   Bell,
   MessageCircle,
-  UserCircle,
   Settings,
   LogOut,
   PlusSquare,
@@ -16,7 +15,6 @@ import {
   ShieldCheck,
   GripVertical,
   Loader2,
-  Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +35,7 @@ import { useEffect, useState } from "react";
 import type { Profile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import PincloneLogo from "./pinclone-logo";
+import { signOutClient } from "@/services/authService";
 
 export default function AppHeader() {
   const { isMobile, toggleSidebar } = useSidebar();
@@ -50,79 +49,64 @@ export default function AppHeader() {
     null,
   );
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    // Update search query input if URL query param changes
     setSearchQuery(searchParams.get("q") || "");
   }, [searchParams]);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      setIsLoadingUser(true);
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        setCurrentUserEmail(session.user.email || null);
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
+    const fetchUserAndProfile = async (userId: string, userEmail: string | undefined) => {
+      setCurrentUserEmail(userEmail || null);
+      const { data: profileData, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
 
-        if (error && error.code !== "PGRST116") {
-          // console.error("Error fetching profile for header:", error);
+      if (error && error.code !== "PGRST116") { // PGRST116: No rows found, common for new users
+        toast({ variant: 'destructive', title: 'Error fetching profile', description: error.message });
+      }
+      setCurrentUserProfile(profileData as Profile | null);
+    };
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setIsLoadingUser(true);
+        if (session?.user) {
+          await fetchUserAndProfile(session.user.id, session.user.email);
+        } else {
+          setCurrentUserProfile(null);
+          setCurrentUserEmail(null);
         }
-        setCurrentUserProfile(profileData as Profile | null);
+        setIsLoadingUser(false);
+      },
+    );
+    
+    // Initial fetch
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setIsLoadingUser(true);
+      if (session?.user) {
+        await fetchUserAndProfile(session.user.id, session.user.email);
       } else {
         setCurrentUserProfile(null);
         setCurrentUserEmail(null);
       }
       setIsLoadingUser(false);
-    };
+    });
 
-    fetchUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          setCurrentUserEmail(session.user.email || null);
-          const { data, error } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-          if (error && error.code !== "PGRST116") {
-            /* console.error(error); */
-          } else setCurrentUserProfile(data as Profile | null);
-        } else if (event === "SIGNED_OUT") {
-          setCurrentUserProfile(null);
-          setCurrentUserEmail(null);
-        } else if (event === "USER_UPDATED" && session?.user) {
-          // Refetch profile if user object updated (e.g. email change verified)
-          setCurrentUserEmail(session.user.email || null);
-          const { data, error } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-          if (error && error.code !== "PGRST116") {
-            /* console.error(error); */
-          } else setCurrentUserProfile(data as Profile | null);
-        }
-      },
-    );
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, router, pathname]);
+  }, [supabase, toast, router]); // Added router to dep array if redirects occur from here
 
   const handleLogout = async () => {
-    setIsLoadingUser(true);
-    const { error } = await supabase.auth.signOut();
+    setIsLoggingOut(true);
+    const { error } = await signOutClient();
+    setIsLoggingOut(false);
     if (error) {
       toast({
         variant: "destructive",
@@ -130,16 +114,15 @@ export default function AppHeader() {
         description: error.message,
       });
     } else {
-      setCurrentUserProfile(null);
-      setCurrentUserEmail(null);
-      router.push("/login");
-      router.refresh();
+      // setCurrentUserProfile(null); // onAuthStateChange will handle this
+      // setCurrentUserEmail(null);
+      // router.push("/login"); // onAuthStateChange in AppClientLayout handles redirect
+      // router.refresh(); 
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
     }
-    setIsLoadingUser(false);
   };
 
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -156,7 +139,7 @@ export default function AppHeader() {
     currentUserProfile?.username?.[0]?.toUpperCase() ||
     "P";
   const isHomePage = pathname === "/";
-  const showCreateButton = currentUserProfile && !isHomePage;
+  const showCreateButton = currentUserProfile && !isHomePage; // Keep or adjust this logic as needed
 
   return (
     <header className="sticky top-0 z-40 w-full bg-background/90 backdrop-blur-md border-b border-border/80 shadow-sm">
@@ -168,18 +151,18 @@ export default function AppHeader() {
               size="icon"
               onClick={toggleSidebar}
               className="text-foreground/70 hover:text-foreground"
+              aria-label="Toggle sidebar"
             >
               <GripVertical className="h-5 w-5" />
-              <span className="sr-only">Toggle Sidebar</span>
             </Button>
           )}
           {!isMobile && (
             <Link
               href="/"
               className="p-2 focus-ring rounded-md hidden md:block"
+              aria-label="Pinclone Home"
             >
               <PincloneLogo className="h-7 w-7 text-primary" />
-              <span className="sr-only">Pinclone Home</span>
             </Link>
           )}
           <Button
@@ -190,7 +173,8 @@ export default function AppHeader() {
           >
             Home
           </Button>
-          {showCreateButton && (
+          {/* Create button on Navbar - could be redundant if in sidebar */}
+           {currentUserProfile && (
             <Button
               variant="ghost"
               size="default"
@@ -217,22 +201,26 @@ export default function AppHeader() {
         </div>
 
         <nav className="flex items-center gap-0.5 sm:gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full h-11 w-11 sm:h-12 sm:w-12 text-foreground/70 hover:text-primary hover:bg-primary/10 focus-ring"
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full h-11 w-11 sm:h-12 sm:w-12 text-foreground/70 hover:text-primary hover:bg-primary/10 focus-ring"
-            aria-label="Messages"
-          >
-            <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-          </Button>
+          {currentUserProfile && (
+            <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full h-11 w-11 sm:h-12 sm:w-12 text-foreground/70 hover:text-primary hover:bg-primary/10 focus-ring"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full h-11 w-11 sm:h-12 sm:w-12 text-foreground/70 hover:text-primary hover:bg-primary/10 focus-ring"
+              aria-label="Messages"
+            >
+              <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+            </Button>
+            </>
+          )}
 
           {isLoadingUser ? (
             <Skeleton className="h-10 w-10 rounded-full" />
@@ -316,19 +304,21 @@ export default function AppHeader() {
                       Settings
                     </DropdownMenuItem>
                   </Link>
+                  {/* Add account can be a future feature
                   <DropdownMenuItem
                     className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed"
                     disabled
                   >
                     <PlusSquare className="mr-2.5 h-4 w-4 text-muted-foreground" />{" "}
                     Add account
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator className="my-1.5" />
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="text-xs text-muted-foreground px-3 pt-1 pb-1">
                     More options
                   </DropdownMenuLabel>
+                   {/* These can be implemented or linked later
                   <DropdownMenuItem
                     className="focus:bg-secondary/80 disabled:opacity-50 cursor-not-allowed"
                     disabled
@@ -356,15 +346,15 @@ export default function AppHeader() {
                   >
                     <ShieldCheck className="mr-2.5 h-4 w-4 text-muted-foreground" />{" "}
                     See privacy policy
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator className="my-1.5" />
                 <DropdownMenuItem
                   className="text-red-600 dark:text-red-500 focus:bg-red-50 dark:focus:bg-red-900/50 focus:text-red-700 dark:focus:text-red-400 cursor-pointer"
                   onClick={handleLogout}
-                  disabled={isLoadingUser && !!currentUserProfile}
+                  disabled={isLoggingOut}
                 >
-                  {isLoadingUser && !!currentUserProfile ? (
+                  {isLoggingOut ? (
                     <Loader2 className="mr-2.5 h-4 w-4 animate-spin" />
                   ) : (
                     <LogOut className="mr-2.5 h-4 w-4" />
@@ -374,9 +364,14 @@ export default function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button asChild size="sm" className="rounded-full px-4 h-10">
-              <Link href="/login">Log In</Link>
-            </Button>
+            <>
+              <Button asChild size="sm" variant="ghost" className="rounded-full px-4 h-10 hidden sm:inline-flex">
+                <Link href="/login">Log In</Link>
+              </Button>
+              <Button asChild size="sm" className="rounded-full px-4 h-10">
+                <Link href="/signup">Sign Up</Link>
+              </Button>
+            </>
           )}
         </nav>
       </div>
