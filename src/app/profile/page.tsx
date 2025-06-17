@@ -23,6 +23,8 @@ import { fetchProfileById } from "@/services/profileService";
 import { fetchPinsByUserId } from "@/services/pinService";
 // AppHeader is now globally available via AppClientLayout
 
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
 const PINS_PER_PAGE = 18;
 
 export default function ProfilePage() {
@@ -38,50 +40,6 @@ export default function ProfilePage() {
   const [hasMorePins, setHasMorePins] = useState(true);
   const pinsLoaderRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState("created");
-
-  const loadUserProfile = useCallback(
-    async (userId: string) => {
-      setIsLoadingProfile(true);
-      const { profile, error } = await fetchProfileById(userId);
-      if (error || !profile) {
-        toast({
-          variant: "destructive",
-          title: "Error fetching profile",
-          description: error || "Profile not found.",
-        });
-        setUserProfile(null);
-        router.push("/"); // Redirect if profile not found for logged-in user
-      } else {
-        setUserProfile(profile);
-        setPins([]);
-        setPinsPage(1);
-        setHasMorePins(true);
-        loadMorePins(userId, 1, true, activeTab);
-      }
-      setIsLoadingProfile(false);
-    },
-    [toast, router, activeTab],
-  ); // Added activeTab
-
-  useEffect(() => {
-    const fetchUserSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        loadUserProfile(session.user.id);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Not Authenticated",
-          description: "Please log in to view your profile.",
-        });
-        router.push("/login");
-        setIsLoadingProfile(false);
-      }
-    };
-    fetchUserSession();
-  }, [supabase.auth, router, toast, loadUserProfile]);
 
   const loadMorePins = useCallback(
     async (
@@ -133,14 +91,61 @@ export default function ProfilePage() {
     [toast, isLoadingPins, hasMorePins],
   );
 
+  const loadUserProfile = useCallback(
+    async (userId: string) => {
+      setIsLoadingProfile(true);
+      const { profile, error } = await fetchProfileById(userId);
+      if (error || !profile) {
+        toast({
+          variant: "destructive",
+          title: "Error fetching profile",
+          description: error || "Profile not found.",
+        });
+        setUserProfile(null);
+        router.push("/"); // Redirect if profile not found for logged-in user
+      } else {
+        setUserProfile(profile);
+        setPins([]);
+        setPinsPage(1);
+        setHasMorePins(true);
+        // Initial load of pins for the active tab
+        loadMorePins(userId, 1, true, activeTab);
+      }
+      setIsLoadingProfile(false);
+    },
+    [toast, router, activeTab, loadMorePins],
+  );
+
   useEffect(() => {
-    if (userProfile?.id) {
+    const fetchUserSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
+        loadUserProfile(session.user.id);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Not Authenticated",
+          description: "Please log in to view your profile.",
+        });
+        router.push("/login");
+        setIsLoadingProfile(false);
+      }
+    };
+    fetchUserSession();
+  }, [supabase.auth, router, toast, loadUserProfile]);
+
+
+  useEffect(() => {
+    if (userProfile?.id && activeTab) { // Ensure activeTab is also considered
       setPins([]);
       setPinsPage(1);
       setHasMorePins(true);
       loadMorePins(userProfile.id, 1, true, activeTab);
     }
-  }, [activeTab, userProfile?.id, loadMorePins]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, userProfile?.id]); // Removed loadMorePins from here to prevent potential loops, let initial load be handled by loadUserProfile or tab change
 
   useEffect(() => {
     const observer = new IntersectionObserver(

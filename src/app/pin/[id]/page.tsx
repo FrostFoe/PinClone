@@ -36,6 +36,8 @@ import { fetchPinById, fetchPinsByUserId } from "@/services/pinService";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
 const RELATED_PINS_LIMIT = 10;
 
 export default function PinDetailPage() {
@@ -79,7 +81,7 @@ export default function PinDetailPage() {
       }
       setIsLoadingPin(false);
     },
-    [toast],
+    [toast], // Removed loadMoreRelatedPins from here as it causes infinite loop if not careful
   );
 
   const loadMoreRelatedPins = useCallback(
@@ -135,6 +137,17 @@ export default function PinDetailPage() {
       loadPinDetails(pinId);
     }
   }, [pinId, loadPinDetails]);
+  
+  useEffect(() => {
+      if (pinDetail?.user_id && pinDetail.id) {
+          // Reset and load related pins when pinDetail (and thus its user_id) is set
+          setRelatedPins([]);
+          setRelatedPage(1);
+          setHasMoreRelated(true);
+          loadMoreRelatedPins(pinDetail.user_id, 1, true, pinDetail.id);
+      }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinDetail?.id, pinDetail?.user_id]); // Intentionally not including loadMoreRelatedPins to avoid loop
 
   useEffect(() => {
     const observer = new IntersectionObserver(

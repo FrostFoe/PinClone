@@ -16,6 +16,8 @@ import Image from "next/image";
 import { UploadCloud, XCircle, Loader2, ImagePlus } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
@@ -324,6 +326,7 @@ export default function CreatePinPage() {
                     <Input
                       id="title"
                       {...field}
+                      value={field.value ?? ""}
                       placeholder="Add a title for your pin"
                       className="mt-1 h-11 focus-ring"
                       disabled={isSubmitting}
@@ -351,6 +354,7 @@ export default function CreatePinPage() {
                     <Textarea
                       id="description"
                       {...field}
+                      value={field.value ?? ""}
                       rows={5}
                       className="mt-1 focus-ring resize-none"
                       placeholder="Tell everyone what your pin is about..."
@@ -365,20 +369,6 @@ export default function CreatePinPage() {
                   </p>
                 )}
               </div>
-
-              {/* Placeholder for choosing a board - future feature */}
-              {/* <div>
-                <Label htmlFor="board" className="text-sm font-medium text-foreground/90">Board (Optional)</Label>
-                <Select>
-                  <SelectTrigger className="w-full mt-1 h-11" disabled={isSubmitting}>
-                    <SelectValue placeholder="Choose a board" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="board1">My Awesome Board</SelectItem>
-                    <SelectItem value="board2">Inspiration</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div> */}
             </div>
           </div>
 

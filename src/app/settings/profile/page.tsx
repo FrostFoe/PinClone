@@ -28,6 +28,8 @@ import {
 } from "@/services/profileService";
 import type { TablesUpdate } from "@/types/supabase";
 
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
 export default function ProfileSettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -53,8 +55,7 @@ export default function ProfileSettingsPage() {
         setCurrentUserId(session.user.id);
         setCurrentUserEmail(session.user.email || null);
         const { profile, error } = await fetchProfileById(session.user.id);
-        if (error && error !== "PGRST116") {
-          // PGRST116 means no row found, which is fine for new users before profile is fully set up.
+        if (error && error !== "Profile not found for this user ID." && error !== "PGRST116") { // PGRST116 means no row found
           toast({
             variant: "destructive",
             title: "Error fetching profile",
@@ -71,7 +72,7 @@ export default function ProfileSettingsPage() {
           title: "Not Authenticated",
           description: "Please log in to edit your profile.",
         });
-        router.push("/login");
+        router.push("/login?next=/settings/profile");
       }
       setIsLoading(false);
     };
@@ -166,11 +167,11 @@ export default function ProfileSettingsPage() {
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split(".").pop();
-      const fileName = `${currentUserId}/avatar.${fileExt}`; // Ensure unique path per user.
+      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`; // Ensure unique path per user.
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("avatars") // Ensure you have an 'avatars' bucket in Supabase Storage
         .upload(fileName, avatarFile, {
-          upsert: true,
+          upsert: true, // Use upsert to overwrite if user uploads new avatar with same conventional name
           contentType: avatarFile.type,
         });
 

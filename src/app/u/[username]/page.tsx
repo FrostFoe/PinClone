@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { fetchProfileByUsername } from "@/services/profileService";
 import { fetchPinsByUserId } from "@/services/pinService";
 
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
 const PINS_PER_PAGE = 18;
 
 export default function UserPublicProfilePage() {
@@ -38,37 +40,6 @@ export default function UserPublicProfilePage() {
   const pinsLoaderRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState("created");
   const [isFollowing, setIsFollowing] = useState(false); // Mock follow state
-
-  const loadUserProfile = useCallback(
-    async (uname: string) => {
-      setIsLoadingUser(true);
-      setUserData(null); // Reset on new username
-      setPins([]);
-      setPinsPage(1);
-      setHasMorePins(true);
-
-      const { profile, error } = await fetchProfileByUsername(uname);
-      if (error || !profile) {
-        toast({
-          variant: "destructive",
-          title: "User Not Found",
-          description: error || `Profile for @${uname} could not be loaded.`,
-        });
-        // router.push('/not-found'); // Or handle inline
-      } else {
-        setUserData(profile);
-        loadMorePins(profile.id, 1, true, activeTab);
-      }
-      setIsLoadingUser(false);
-    },
-    [toast, activeTab],
-  ); // Added activeTab
-
-  useEffect(() => {
-    if (username) {
-      loadUserProfile(username);
-    }
-  }, [username, loadUserProfile]);
 
   const loadMorePins = useCallback(
     async (
@@ -117,15 +88,48 @@ export default function UserPublicProfilePage() {
     },
     [toast, isLoadingPins, hasMorePins],
   );
-
-  useEffect(() => {
-    if (userData?.id) {
+  
+  const loadUserProfile = useCallback(
+    async (uname: string) => {
+      setIsLoadingUser(true);
+      setUserData(null); // Reset on new username
       setPins([]);
       setPinsPage(1);
       setHasMorePins(true);
+
+      const { profile, error } = await fetchProfileByUsername(uname);
+      if (error || !profile) {
+        toast({
+          variant: "destructive",
+          title: "User Not Found",
+          description: error || `Profile for @${uname} could not be loaded.`,
+        });
+        // router.push('/not-found'); // Or handle inline
+      } else {
+        setUserData(profile);
+        // Initial pin load moved to effect below, dependent on userData and activeTab
+      }
+      setIsLoadingUser(false);
+    },
+    [toast], // Removed loadMorePins and activeTab from here to simplify initial load flow
+  );
+
+  useEffect(() => {
+    if (username) {
+      loadUserProfile(username);
+    }
+  }, [username, loadUserProfile]);
+
+  useEffect(() => {
+    // This effect runs when userData or activeTab changes, to load/reload pins
+    if (userData?.id) {
+      setPins([]); // Reset pins
+      setPinsPage(1); // Reset page
+      setHasMorePins(true); // Reset hasMore
       loadMorePins(userData.id, 1, true, activeTab);
     }
-  }, [activeTab, userData?.id, loadMorePins]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData?.id, activeTab]); // loadMorePins is stable due to useCallback
 
   useEffect(() => {
     const observer = new IntersectionObserver(

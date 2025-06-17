@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
 const PINS_PER_PAGE = 20;
 
 export default function HomePage() {

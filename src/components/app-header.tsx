@@ -55,55 +55,57 @@ export default function AppHeader() {
 
   useEffect(() => {
     const fetchUserAndProfile = async (userId: string, userEmail: string | undefined) => {
+      setIsLoadingUser(true); // Set loading true at the start of fetch
       setCurrentUserEmail(userEmail || null);
       try {
-        const { data: profileData, error } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", userId)
           .single();
 
-        if (error && error.code !== "PGRST116") { 
-          // PGRST116: No rows found, common for new users.
-          // Error handling for profile fetching can be done elsewhere if critical,
-          // or this can remain silent to avoid UI noise on transient issues.
+        if (profileError && profileError.code !== "PGRST116") { 
+          console.error("AppHeader: Supabase error fetching profile:", profileError.message);
+          setCurrentUserProfile(null);
+        } else {
+          setCurrentUserProfile(profileData as Profile | null);
         }
-        setCurrentUserProfile(profileData as Profile | null);
-      } catch (e) {
-        // Catch unexpected errors during profile fetch
+      } catch (e: any) {
+        console.error("AppHeader: Unexpected error fetching profile:", e.message);
+        setCurrentUserProfile(null); 
+      } finally {
+        setIsLoadingUser(false); 
       }
     };
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setIsLoadingUser(true);
         if (session?.user) {
           await fetchUserAndProfile(session.user.id, session.user.email);
         } else {
           setCurrentUserProfile(null);
           setCurrentUserEmail(null);
+          setIsLoadingUser(false); // Ensure loading is false if no session
         }
-        setIsLoadingUser(false);
       },
     );
     
     // Initial fetch
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setIsLoadingUser(true);
       if (session?.user) {
         await fetchUserAndProfile(session.user.id, session.user.email);
       } else {
         setCurrentUserProfile(null);
         setCurrentUserEmail(null);
+        setIsLoadingUser(false); // Ensure loading is false if no session
       }
-      setIsLoadingUser(false);
     });
 
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase]); // Removed toast from dependencies as it's stable
+  }, [supabase]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -120,6 +122,7 @@ export default function AppHeader() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
+      // router.push('/login'); // Handled by AppClientLayout's onAuthStateChange > router.refresh
     }
   };
 
@@ -336,3 +339,4 @@ export default function AppHeader() {
     </header>
   );
 }
+
