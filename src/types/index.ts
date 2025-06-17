@@ -1,34 +1,73 @@
+
 export interface Profile {
-  id: string;
-  username: string | null; // Should become non-null after initial setup via trigger
+  id: string; // Corresponds to auth.users.id
+  username: string; // Now NOT NULL in DB
   full_name: string | null;
   avatar_url: string | null;
   bio: string | null;
   website: string | null;
   created_at: string;
+  updated_at: string; // Added from new schema
 }
 
 export interface Pin {
+  id: string;
+  user_id: string; // Foreign key to profiles.id
+  image_url: string;
+  title: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string; // Added from new schema
+  width: number; // Now NOT NULL in DB
+  height: number; // Now NOT NULL in DB
+  uploader: Pick<Profile, "username" | "avatar_url" | "full_name">; // username is string
+  tags?: Tag[]; // Optional, if tags are loaded
+  likes_count?: number;
+  comments_count?: number;
+}
+
+// For Supabase responses that include joined profile data directly
+export interface PinWithUploaderFromSupabase {
   id: string;
   user_id: string;
   image_url: string;
   title: string | null;
   description: string | null;
   created_at: string;
-  width: number;
-  height: number;
-  uploader?: Pick<Profile, "username" | "avatar_url" | "full_name">;
-  // likes_count?: number; // Example, if you add this field directly to pins table or a view
-}
-
-// For Supabase responses that might include joined profile data
-export interface PinWithUploader
-  extends Omit<Pin, "uploader" | "width" | "height"> {
-  width: number; // Changed from number | null - reflects DB NOT NULL
-  height: number; // Changed from number | null - reflects DB NOT NULL
-  profiles: {
-    username: string | null;
+  updated_at: string;
+  width: number; // From DB, NOT NULL
+  height: number; // From DB, NOT NULL
+  profiles: { // Assumed to be non-null due to FK relationship and select join
+    username: string; // From DB, NOT NULL
     avatar_url: string | null;
     full_name: string | null;
-  } | null;
+  };
+}
+
+export interface Tag {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export interface Comment {
+  id: string;
+  pin_id: string;
+  user_id: string;
+  content: string;
+  parent_comment_id: string | null;
+  created_at: string;
+  updated_at: string;
+  commenter?: Pick<Profile, "username" | "avatar_url" | "full_name">;
+}
+
+export interface Board {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  is_private: boolean;
+  cover_image_url: string | null;
+  created_at: string;
+  updated_at: string;
 }

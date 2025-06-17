@@ -10,6 +10,231 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      boards: {
+        Row: {
+          cover_image_url: string | null;
+          created_at: string;
+          description: string | null;
+          id: string;
+          is_private: boolean;
+          name: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          cover_image_url?: string | null;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_private?: boolean;
+          name: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          cover_image_url?: string | null;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_private?: boolean;
+          name?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "boards_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      board_pins: {
+        Row: {
+          board_id: string;
+          created_at: string;
+          pin_id: string;
+        };
+        Insert: {
+          board_id: string;
+          created_at?: string;
+          pin_id: string;
+        };
+        Update: {
+          board_id?: string;
+          created_at?: string;
+          pin_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "board_pins_board_id_fkey";
+            columns: ["board_id"];
+            isOneToOne: false;
+            referencedRelation: "boards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "board_pins_pin_id_fkey";
+            columns: ["pin_id"];
+            isOneToOne: false;
+            referencedRelation: "pins";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      comments: {
+        Row: {
+          content: string;
+          created_at: string;
+          id: string;
+          parent_comment_id: string | null;
+          pin_id: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          content: string;
+          created_at?: string;
+          id?: string;
+          parent_comment_id?: string | null;
+          pin_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          content?: string;
+          created_at?: string;
+          id?: string;
+          parent_comment_id?: string | null;
+          pin_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_comment_id_fkey";
+            columns: ["parent_comment_id"];
+            isOneToOne: false;
+            referencedRelation: "comments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comments_pin_id_fkey";
+            columns: ["pin_id"];
+            isOneToOne: false;
+            referencedRelation: "pins";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comments_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      follows: {
+        Row: {
+          created_at: string;
+          follower_id: string;
+          following_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          follower_id: string;
+          following_id: string;
+        };
+        Update: {
+          created_at?: string;
+          follower_id?: string;
+          following_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_id_fkey";
+            columns: ["follower_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "follows_following_id_fkey";
+            columns: ["following_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      likes: {
+        Row: {
+          created_at: string;
+          pin_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          pin_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          pin_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "likes_pin_id_fkey";
+            columns: ["pin_id"];
+            isOneToOne: false;
+            referencedRelation: "pins";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "likes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pin_tags: {
+        Row: {
+          created_at: string;
+          pin_id: string;
+          tag_id: number;
+        };
+        Insert: {
+          created_at?: string;
+          pin_id: string;
+          tag_id: number;
+        };
+        Update: {
+          created_at?: string;
+          pin_id?: string;
+          tag_id?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pin_tags_pin_id_fkey";
+            columns: ["pin_id"];
+            isOneToOne: false;
+            referencedRelation: "pins";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pin_tags_tag_id_fkey";
+            columns: ["tag_id"];
+            isOneToOne: false;
+            referencedRelation: "tags";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       pins: {
         Row: {
           created_at: string;
@@ -18,6 +243,7 @@ export type Database = {
           id: string;
           image_url: string;
           title: string | null;
+          updated_at: string;
           user_id: string;
           width: number;
         };
@@ -28,6 +254,7 @@ export type Database = {
           id?: string;
           image_url: string;
           title?: string | null;
+          updated_at?: string;
           user_id: string;
           width: number;
         };
@@ -38,15 +265,16 @@ export type Database = {
           id?: string;
           image_url?: string;
           title?: string | null;
+          updated_at?: string;
           user_id?: string;
           width?: number;
         };
         Relationships: [
           {
-            foreignKeyName: "pins_user_id_fkey"; // Updated FK name
+            foreignKeyName: "pins_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "profiles"; // Correctly references profiles
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -58,6 +286,7 @@ export type Database = {
           created_at: string;
           full_name: string | null;
           id: string;
+          updated_at: string;
           username: string;
           website: string | null;
         };
@@ -67,6 +296,7 @@ export type Database = {
           created_at?: string;
           full_name?: string | null;
           id: string;
+          updated_at?: string;
           username: string;
           website?: string | null;
         };
@@ -76,12 +306,13 @@ export type Database = {
           created_at?: string;
           full_name?: string | null;
           id?: string;
+          updated_at?: string;
           username?: string;
           website?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "profiles_id_fkey"; // Updated FK name
+            foreignKeyName: "profiles_id_fkey";
             columns: ["id"];
             isOneToOne: true;
             referencedRelation: "users";
@@ -89,14 +320,36 @@ export type Database = {
           },
         ];
       };
+      tags: {
+        Row: {
+          created_at: string;
+          id: number;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: number;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: number;
+          name?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      handle_new_user: { // Ensure this matches the SQL function name
-        Args: Record<PropertyKey, never>; // Or define args if any
-        Returns: Record<PropertyKey, never>; // Or define return type
+      handle_new_user: {
+        Args: Record<PropertyKey, never>;
+        Returns: Record<PropertyKey, never>; // Simplified, actual return is trigger context
+      };
+      set_current_timestamp_updated_at: {
+        Args: Record<PropertyKey, never>;
+        Returns: Record<PropertyKey, never>; // Simplified, actual return is trigger context
       };
     };
     Enums: {
@@ -188,6 +441,5 @@ export type Enums<
     ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never;
 
-// Ensure this file is updated by running:
+// Reminder to regenerate types after applying schema changes:
 // npx supabase gen types typescript --project-id <your-project-id> --schema public > src/types/supabase.ts
-// Based on your provided schemas.

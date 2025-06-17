@@ -1,30 +1,41 @@
+
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Pin, PinWithUploader } from "@/types";
+import type { Pin, PinWithUploaderFromSupabase } from "@/types";
 import type { TablesInsert } from "@/types/supabase";
 
 // Helper to map Supabase pin data (with joined profile) to our Pin type
-// Exporting for use in other services like searchService
 export async function mapSupabasePin(
-  supabasePin: PinWithUploader,
+  supabasePin: PinWithUploaderFromSupabase,
 ): Promise<Pin> {
+  // Ensure profiles is not null - it should be guaranteed by the FK and select query
+  if (!supabasePin.profiles) {
+    console.error(
+      `Error in mapSupabasePin: profiles data missing for pin ID ${supabasePin.id}. This indicates an issue with the data fetch or schema.`,
+    );
+    // Fallback or throw error, depending on desired strictness.
+    // For now, let's proceed but log, and uploader might be incomplete.
+    // This path should ideally not be hit if queries and schema are correct.
+  }
+
   return {
     id: supabasePin.id,
-    user_id: supabasePin.user_id || "",
+    user_id: supabasePin.user_id,
     image_url: supabasePin.image_url,
     title: supabasePin.title,
     description: supabasePin.description,
     created_at: supabasePin.created_at,
-    width: supabasePin.width, // supabasePin.width is now number, fallback less critical
-    height: supabasePin.height, // supabasePin.height is now number, fallback less critical
-    uploader: supabasePin.profiles
-      ? {
-          username: supabasePin.profiles.username || "unknown_user",
-          avatar_url: supabasePin.profiles.avatar_url,
-          full_name: supabasePin.profiles.full_name,
-        }
-      : undefined,
+    updated_at: supabasePin.updated_at,
+    width: supabasePin.width, // Directly use, as it's NOT NULL
+    height: supabasePin.height, // Directly use, as it's NOT NULL
+    uploader: {
+      // profiles object is now expected to be non-null from PinWithUploaderFromSupabase
+      username: supabasePin.profiles.username, // username is NOT NULL in profiles table
+      avatar_url: supabasePin.profiles.avatar_url,
+      full_name: supabasePin.profiles.full_name,
+    },
+    // tags, likes_count, comments_count would be populated by more complex queries if needed directly on Pin
   };
 }
 
@@ -57,7 +68,13 @@ export async function fetchAllPins(
       return { pins: [], error: error.message };
     }
 
-    const pins = data ? await Promise.all(data.map(mapSupabasePin)) : [];
+    const pins = data
+      ? await Promise.all(
+          data.map((p) =>
+            mapSupabasePin(p as PinWithUploaderFromSupabase),
+          ),
+        )
+      : [];
     return { pins, error: null };
   } catch (e: any) {
     console.error("Unexpected error in fetchAllPins:", (e as Error).message);
@@ -94,7 +111,12 @@ export async function fetchPinById(
       return { pin: null, error: error.message };
     }
 
-    return { pin: data ? await mapSupabasePin(data) : null, error: null };
+    return data
+      ? {
+          pin: await mapSupabasePin(data as PinWithUploaderFromSupabase),
+          error: null,
+        }
+      : { pin: null, error: "Pin data is null." };
   } catch (e: any) {
     console.error("Unexpected error in fetchPinById:", (e as Error).message);
     return { pin: null, error: "An unexpected error occurred." };
@@ -132,7 +154,13 @@ export async function fetchPinsByUserId(
       return { pins: [], error: error.message };
     }
 
-    const pins = data ? await Promise.all(data.map(mapSupabasePin)) : [];
+    const pins = data
+      ? await Promise.all(
+          data.map((p) =>
+            mapSupabasePin(p as PinWithUploaderFromSupabase),
+          ),
+        )
+      : [];
     return { pins, error: null };
   } catch (e: any) {
     console.error(
@@ -144,7 +172,10 @@ export async function fetchPinsByUserId(
 }
 
 export async function createPin(
-  pinData: Omit<TablesInsert<"pins">, "id" | "created_at" | "user_id">,
+  pinData: Omit<
+    TablesInsert<"pins">,
+    "id" | "created_at" | "updated_at" | "user_id"
+  > & { width: number; height: number }, // Ensure width/height are part of input
 ): Promise<{ pin: Pin | null; error: string | null }> {
   const supabase = createSupabaseServerClient();
 
@@ -165,6 +196,7 @@ export async function createPin(
   if (!pinData.image_url) {
     return { pin: null, error: "Image URL is required." };
   }
+  // Width and height are now guaranteed by type and DB constraint
   if (typeof pinData.width !== "number" || typeof pinData.height !== "number") {
     return {
       pin: null,
@@ -175,7 +207,7 @@ export async function createPin(
 
   const newPin: TablesInsert<"pins"> = {
     ...pinData,
-    user_id: user.id,
+    user_id: user.id, // This user_id references profiles.id now
   };
 
   try {
@@ -203,33 +235,14 @@ export async function createPin(
     }
 
     if (insertedPinData) {
-      let createdPin = insertedPinData as PinWithUploader;
-
-      if (!createdPin.profiles) {
-        console.warn(
-          `Profile data for user ${user.id} not immediately available after pin creation. Attempting fallback fetch.`,
-        );
-        const { data: profileData, error: profileFetchError } = await supabase
-          .from("profiles")
-          .select("username, avatar_url, full_name")
-          .eq("id", user.id)
-          .single();
-
-        if (profileFetchError && profileFetchError.code !== "PGRST116") {
-          console.error(
-            "Error in fallback fetch for profile details after pin creation:",
-            profileFetchError.message,
-          );
-        }
-        if (profileData) {
-          createdPin.profiles = profileData;
-        } else {
-          console.warn(
-            `Fallback profile fetch for user ${user.id} found no profile. Uploader info on pin will be undefined.`,
-          );
-        }
-      }
-      return { pin: await mapSupabasePin(createdPin), error: null };
+      // The joined 'profiles' data should be reliably returned here due to the FK constraint
+      // and the select query. The fallback used previously is no longer necessary.
+      return {
+        pin: await mapSupabasePin(
+          insertedPinData as PinWithUploaderFromSupabase,
+        ),
+        error: null,
+      };
     }
     return {
       pin: null,

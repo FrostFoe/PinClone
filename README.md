@@ -10,14 +10,13 @@ This is a Next.js starter project for Pinclone, integrated with Supabase for bac
     - Create a Supabase project.
     - In the Supabase Dashboard, navigate to the SQL Editor.
     - Open the `sql/schema.sql` file from this project.
-    - **Important**: If you are running this on an existing database with previous Pinclone tables, the script includes `DROP TABLE IF EXISTS ... CASCADE;` commands. These will delete your existing `pins` and `profiles` tables and their data. Ensure you have backups if needed.
+    - **Important**: The script includes `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` commands. These will delete your existing `public` schema and all its data. Ensure you have backups if needed or remove these lines if applying to an existing schema you wish to preserve and modify.
     - Copy its entire content and paste it into the Supabase SQL Editor.
     - Run the script to create all necessary tables, indexes, RLS policies, and triggers.
     - **Storage Buckets**:
-      - Go to Storage -> Create Bucket. Name it `pins`. Make it public or set appropriate access policies as suggested in the comments of `sql/schema.sql`.
-      - Go to Storage -> Create Bucket. Name it `avatars`. Make it public or set appropriate access policies as suggested in the comments of `sql/schema.sql`.
+      - The SQL script includes comments in "SECTION 7" with guidance and example RLS for creating `pins` and `avatars` storage buckets. Please review these and set up your buckets accordingly in the Supabase Storage UI.
     - Review and ensure Row Level Security (RLS) policies (defined in `sql/schema.sql`) are active for your tables.
-    - **Refresh Schema Cache**: After running the SQL script, it's a good practice to refresh Supabase's schema cache. You can often do this in the Supabase Dashboard (e.g., API section -> "Reload schema") or by making a minor, trivial change to a table via the UI (like adding/removing a column comment) and saving.
+    - **Refresh Schema Cache**: After running the SQL script, it's crucial to refresh Supabase's schema cache. You can often do this in the Supabase Dashboard (e.g., API section -> "Reload schema") or by making a minor, trivial change to a table via the UI (like adding/removing a column comment) and saving.
 
 2.  **Environment Variables:**
 
@@ -28,7 +27,7 @@ This is a Next.js starter project for Pinclone, integrated with Supabase for bac
       NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
       ```
 
-3.  **Generate Supabase TypeScript Types (Recommended after schema changes):**
+3.  **Generate Supabase TypeScript Types (Highly Recommended after schema changes):**
     ```bash
     npx supabase gen types typescript --project-id <your-project-id> --schema public > src/types/supabase.ts
     ```
@@ -48,7 +47,7 @@ This is a Next.js starter project for Pinclone, integrated with Supabase for bac
 
 ## Supabase Schema
 
-The complete database schema, including tables for `pins` and `profiles`, RLS policies, indexes, and the new user trigger, is defined in the `sql/schema.sql` file. Please run this script in your Supabase project's SQL Editor.
+The complete database schema, including tables for profiles, pins, tags, likes, comments, boards, follows, RLS policies, indexes, and the new user trigger, is defined in the `sql/schema.sql` file. Please run this script in your Supabase project's SQL Editor.
 
 ## Project Structure
 
@@ -60,24 +59,36 @@ The complete database schema, including tables for `pins` and `profiles`, RLS po
 - `src/types/`: TypeScript type definitions.
 - `sql/schema.sql`: The complete SQL script to set up the database.
 
-## Key Features
+## Key Features (Targeted by New Schema)
 
 - **Supabase Auth**: User signup, login, logout.
-- **Pin Display**: Fetches and displays pins from Supabase on the homepage and individual pin pages.
-- **Create Pin**: Users can upload images and create new pins, saved to Supabase.
-- **User Profiles**: Fetches and displays user profile information. Profile editing page allows updates to Supabase, including avatar uploads.
-- **User Search**: Search for users by username or full name. Pin search service also exists.
+- **User Profiles**: Extended user profile data.
+- **Pin Management**: Create, display, update, delete pins.
+- **Tagging**: Pins can be tagged and searched/filtered by tags.
+- **Likes**: Users can like/unlike pins.
+- **Comments**: Users can comment on pins.
+- **Boards/Collections**: Users can create boards and save pins to them.
+- **Follows**: Users can follow other users.
+- **Search**: Functionality for searching users and pins (backend services exist, UI for pin search TBD).
 - **Responsive Design**: Masonry layout for pins, mobile-friendly UI.
 - **Loading & Error States**: Skeletons, spinners, and toasts for better UX.
 
-## Next Steps / To-Do
+## Next Steps / To-Do (Post Schema Update)
 
+- Implement UI and services for all new features:
+    - Tag creation and association with pins.
+    - Liking/unliking pins.
+    - Commenting on pins (viewing, adding, editing, deleting).
+    - Board creation, adding/removing pins from boards.
+    - Following/unfollowing users.
+    - Displaying follower/following counts.
+    - Integrating pin search results into UI.
 - Implement "forgot password" functionality.
 - Add OAuth providers (Google, GitHub, etc.).
-- Implement liking, saving/collecting pins into boards, and commenting features.
-- Refine infinite scrolling with more robust error handling and end-of-list indicators.
-- Implement optimistic updates for actions like creating pins or updating profiles.
-- Expand RLS policies for more complex features (e.g., sharing, private boards).
-- Add more sophisticated search filters (e.g., by tags, colors).
-- Implement UI for pin search results.
-- Add Framer Motion for more advanced animations.
+- Refine infinite scrolling with more robust error handling and end-of-list indicators for all relevant feeds.
+- Implement optimistic updates for actions like liking, commenting, saving to boards.
+- Expand RLS policies for more complex scenarios (e.g., collaborative boards, private messages).
+- Add more sophisticated search filters (e.g., by tags, colors for pins).
+- Add Framer Motion for more advanced animations if desired.
+- Enhance the `handle_new_user` trigger for more robust unique username generation if needed, though app-level profile settings provide a good fallback.
+- Write comprehensive tests.
