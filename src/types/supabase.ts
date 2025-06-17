@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -13,12 +14,12 @@ export type Database = {
         Row: {
           created_at: string;
           description: string | null;
-          height: number; // Changed from number | null
+          height: number;
           id: string;
           image_url: string;
           title: string | null;
           user_id: string;
-          width: number; // Changed from number | null
+          width: number;
         };
         Insert: {
           created_at?: string;
@@ -33,26 +34,19 @@ export type Database = {
         Update: {
           created_at?: string;
           description?: string | null;
-          height?: number; // Changed from number | null
+          height?: number;
           id?: string;
           image_url?: string;
           title?: string | null;
           user_id?: string;
-          width?: number; // Changed from number | null
+          width?: number;
         };
         Relationships: [
           {
-            foreignKeyName: "pins_user_id_fkey";
+            foreignKeyName: "pins_user_id_fkey"; // Updated FK name
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "pins_user_id_fkey_profiles";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
+            referencedRelation: "profiles"; // Correctly references profiles
             referencedColumns: ["id"];
           },
         ];
@@ -87,7 +81,7 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "profiles_id_fkey";
+            foreignKeyName: "profiles_id_fkey"; // Updated FK name
             columns: ["id"];
             isOneToOne: true;
             referencedRelation: "users";
@@ -100,9 +94,9 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      handle_new_user?: {
-        Args: Record<PropertyKey, never>;
-        Returns: Record<PropertyKey, never>;
+      handle_new_user: { // Ensure this matches the SQL function name
+        Args: Record<PropertyKey, never>; // Or define args if any
+        Returns: Record<PropertyKey, never>; // Or define return type
       };
     };
     Enums: {

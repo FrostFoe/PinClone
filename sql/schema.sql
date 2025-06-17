@@ -1,156 +1,111 @@
 
--- Supabase Pinclone App Schema
--- Version: 1.0.0
---
--- This script creates the necessary tables, relationships,
--- indexes, and RLS policies for the Pinclone application.
--- It also includes a trigger to automatically create a user
--- profile when a new user signs up via Supabase Auth.
+-- Drop existing tables if they exist to ensure a clean setup.
+-- CASCADE will also drop dependent objects like indexes and constraints.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP TABLE IF EXISTS public.pins CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
 
--- Enable UUID generation
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Profiles Table
--- Stores public user profile information.
-CREATE TABLE public.profiles (
-    id UUID PRIMARY KEY NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    username TEXT UNIQUE NOT NULL CHECK (char_length(username) >= 3 AND char_length(username) <= 50 AND username ~ '^[a-zA-Z0-9_.]+$'),
-    full_name TEXT CHECK (char_length(full_name) <= 100),
-    avatar_url TEXT CHECK (char_length(avatar_url) <= 1024),
-    bio TEXT CHECK (char_length(bio) <= 160),
-    website TEXT CHECK (char_length(website) <= 255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-COMMENT ON TABLE public.profiles IS 'User profile information linked to Supabase Auth users.';
-COMMENT ON COLUMN public.profiles.id IS 'References auth.users.id from Supabase Auth.';
-COMMENT ON COLUMN public.profiles.username IS 'Unique, publicly visible username. Min 3, Max 50 chars, alphanumeric, underscores, dots.';
-COMMENT ON COLUMN public.profiles.full_name IS 'User''s full name.';
-COMMENT ON COLUMN public.profiles.avatar_url IS 'URL to the user''s avatar image.';
-COMMENT ON COLUMN public.profiles.bio IS 'Short user biography, max 160 characters.';
-COMMENT ON COLUMN public.profiles.website IS 'User''s personal or professional website.';
-
--- Make username case-insensitive unique and search-friendly
-CREATE UNIQUE INDEX profiles_username_case_insensitive_idx ON public.profiles (lower(username));
--- Index for searching profiles by full_name
-CREATE INDEX profiles_full_name_idx ON public.profiles USING gin (to_tsvector('english', full_name));
-
-
--- Row Level Security (RLS) for Profiles Table
+-- Enable Row Level Security
+ALTER TABLE public.pins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public read access to profiles"
-ON public.profiles FOR SELECT
-USING (true);
-
-CREATE POLICY "Allow user to insert their own profile"
-ON public.profiles FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Allow user to update their own profile"
-ON public.profiles FOR UPDATE
-TO authenticated
-USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Allow user to delete their own profile"
-ON public.profiles FOR DELETE
-TO authenticated
-USING (auth.uid() = id);
-
-
--- Pins Table
--- Stores information about each pin.
-CREATE TABLE public.pins (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    image_url TEXT NOT NULL CHECK (char_length(image_url) <= 1024),
-    title TEXT CHECK (char_length(title) <= 100),
-    description TEXT CHECK (char_length(description) <= 500),
-    width INTEGER NOT NULL CHECK (width > 0),
-    height INTEGER NOT NULL CHECK (height > 0),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+-- Create the profiles table
+-- This table stores public user profile information.
+CREATE TABLE public.profiles (
+  id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username TEXT UNIQUE NOT NULL CHECK (char_length(username) >= 3 AND username ~ '^[a-zA-Z0-9_.]+$'),
+  full_name TEXT,
+  avatar_url TEXT CHECK (avatar_url ~* '^https?://.+'),
+  bio TEXT CHECK (char_length(bio) <= 160),
+  website TEXT CHECK (website ~* '^https?://.+'),
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+COMMENT ON TABLE public.profiles IS 'Public user profiles, linked to auth.users.';
+COMMENT ON COLUMN public.profiles.id IS 'References auth.users.id';
+COMMENT ON COLUMN public.profiles.username IS 'Unique, public username (3+ chars, alphanumeric, _, .)';
+COMMENT ON COLUMN public.profiles.avatar_url IS 'URL for the user''s avatar image.';
+COMMENT ON COLUMN public.profiles.bio IS 'Short user biography (max 160 chars).';
+COMMENT ON COLUMN public.profiles.website IS 'User''s personal or professional website URL.';
 
-COMMENT ON TABLE public.pins IS 'Represents individual pins created by users.';
-COMMENT ON COLUMN public.pins.user_id IS 'The user who created the pin, references auth.users.id.';
-COMMENT ON COLUMN public.pins.image_url IS 'URL of the pin''s image.';
-COMMENT ON COLUMN public.pins.title IS 'Title of the pin, max 100 characters.';
-COMMENT ON COLUMN public.pins.description IS 'Description of the pin, max 500 characters.';
-COMMENT ON COLUMN public.pins.width IS 'Width of the image in pixels.';
-COMMENT ON COLUMN public.pins.height IS 'Height of the image in pixels.';
-
--- Indexes for Pins Table
-CREATE INDEX idx_pins_user_id ON public.pins(user_id);
-CREATE INDEX idx_pins_created_at ON public.pins(created_at DESC);
--- For text search on title and description
-CREATE INDEX pins_text_search_idx ON public.pins USING gin (to_tsvector('english', title || ' ' || description));
+-- Create an index on lowercase username for case-insensitive unique checks and searches
+CREATE UNIQUE INDEX profiles_username_lower_idx ON public.profiles (LOWER(username));
+-- Create an index on full_name for searching
+CREATE INDEX profiles_full_name_idx ON public.profiles USING GIN (to_tsvector('english', full_name));
 
 
--- Row Level Security (RLS) for Pins Table
-ALTER TABLE public.pins ENABLE ROW LEVEL SECURITY;
+-- Create the pins table
+-- This table stores information about each pin.
+CREATE TABLE public.pins (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL CHECK (image_url ~* '^https?://.+'),
+  title TEXT CHECK (char_length(title) <= 100),
+  description TEXT CHECK (char_length(description) <= 500),
+  width INT NOT NULL CHECK (width > 0),
+  height INT NOT NULL CHECK (height > 0),
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+COMMENT ON TABLE public.pins IS 'Stores all pins created by users.';
+COMMENT ON COLUMN public.pins.user_id IS 'References the uploader''s profile in public.profiles.';
+COMMENT ON COLUMN public.pins.image_url IS 'Public URL of the pin image.';
+COMMENT ON COLUMN public.pins.title IS 'Title of the pin (max 100 chars).';
+COMMENT ON COLUMN public.pins.description IS 'Description of the pin (max 500 chars).';
+COMMENT ON COLUMN public.pins.width IS 'Original width of the image in pixels.';
+COMMENT ON COLUMN public.pins.height IS 'Original height of the image in pixels.';
 
-CREATE POLICY "Allow public read access to pins"
-ON public.pins FOR SELECT
-USING (true);
-
-CREATE POLICY "Allow authenticated users to insert pins"
-ON public.pins FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Allow owner to update their pins"
-ON public.pins FOR UPDATE
-TO authenticated
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Allow owner to delete their pins"
-ON public.pins FOR DELETE
-TO authenticated
-USING (auth.uid() = user_id);
+-- Add indexes to pins table
+CREATE INDEX pins_user_id_idx ON public.pins(user_id);
+CREATE INDEX pins_created_at_idx ON public.pins(created_at DESC);
+-- Create an index on title and description for searching
+CREATE INDEX pins_text_search_idx ON public.pins USING GIN (to_tsvector('english', title || ' ' || description));
 
 
--- Function and Trigger to create a profile on new user signup
--- This function attempts to generate a username. If it fails due to uniqueness
--- or other constraints, the user will need to set their username in profile settings.
+-- Function to create a profile for a new user.
+-- This function is called by a trigger when a new user signs up.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER -- Important for accessing auth.users table
+SET search_path = public
+AS $$
 DECLARE
-  generated_username TEXT;
-  email_prefix TEXT;
   random_suffix TEXT;
-  attempts INTEGER := 0;
+  base_username TEXT;
+  final_username TEXT;
+  attempts INT := 0;
 BEGIN
-  -- Extract prefix from email
-  email_prefix := substring(new.email from 1 for position('@' in new.email) - 1);
-  -- Sanitize email_prefix to be valid for username (alphanumeric, underscore, dot)
-  email_prefix := lower(regexp_replace(email_prefix, '[^a-zA-Z0-9_.]', '', 'g'));
-  -- Ensure prefix is not too short or too long
-  IF char_length(email_prefix) < 2 THEN
-    email_prefix := 'user';
-  ELSIF char_length(email_prefix) > 30 THEN
-    email_prefix := substring(email_prefix from 1 for 30);
+  -- Generate a base username from the email prefix
+  base_username := COALESCE(
+    NULLIF(LOWER(regexp_replace(NEW.email, '@.*$', '')), ''), -- Get part before @
+    'user'
+  );
+  -- Sanitize: remove non-alphanumeric characters, keep dots and underscores
+  base_username := regexp_replace(base_username, '[^a-z0-9_.]', '', 'g');
+  -- Ensure base_username is not too short
+  IF char_length(base_username) < 3 THEN
+    base_username := base_username || 'usr';
   END IF;
+  -- Ensure base_username is not too long (e.g. max 20 chars before suffix)
+  base_username := SUBSTRING(base_username FROM 1 FOR 20);
 
-  -- Attempt to generate a unique username
+  -- Attempt to create a unique username
   LOOP
-    random_suffix := to_char(floor(random() * 100000), 'FM00000');
-    generated_username := email_prefix || '_' || random_suffix;
-    -- Ensure generated_username does not exceed max length for username
-    generated_username := substring(generated_username from 1 for 50);
+    random_suffix := SUBSTRING(md5(random()::text) FROM 1 FOR 5);
+    final_username := base_username || '_' || random_suffix;
 
-    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.profiles WHERE username = generated_username);
+    -- Check if username already exists
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE username = final_username) THEN
+      EXIT; -- Username is unique
+    END IF;
+
     attempts := attempts + 1;
-    IF attempts > 10 THEN -- Prevent infinite loop in rare high-collision scenarios
-      -- Fallback: use a generic prefix if too many collisions
-      generated_username := 'new_user_' || to_char(floor(random() * 1000000), 'FM000000');
-      generated_username := substring(generated_username from 1 for 50);
-      IF EXISTS (SELECT 1 FROM public.profiles WHERE username = generated_username) THEN
-         -- Extremely rare case, let the insert fail and user can set username manually
-         RAISE WARNING 'Could not generate a unique username for user % after multiple attempts.', new.id;
-         RETURN new; -- Or handle error more explicitly if needed
+    IF attempts >= 5 THEN
+      -- Fallback to a more generic unique username if multiple attempts fail
+      final_username := 'user_' || NEW.id::text;
+      IF EXISTS (SELECT 1 FROM public.profiles WHERE username = final_username) THEN
+         -- This should be extremely rare, but as a last resort:
+         final_username := 'user_' || NEW.id::text || '_' || SUBSTRING(md5(random()::text) FROM 1 FOR 3);
       END IF;
       EXIT;
     END IF;
@@ -158,47 +113,131 @@ BEGIN
 
   INSERT INTO public.profiles (id, username, full_name, avatar_url)
   VALUES (
-    new.id,
-    generated_username,
-    new.raw_user_meta_data->>'full_name', -- Use full_name from auth metadata if available
-    new.raw_user_meta_data->>'avatar_url' -- Use avatar_url from auth metadata if available
+    NEW.id,
+    final_username,
+    NEW.raw_user_meta_data->>'full_name', -- Assumes 'full_name' is passed in user_metadata
+    NEW.raw_user_meta_data->>'avatar_url' -- Assumes 'avatar_url' is passed in user_metadata
   );
-  RETURN new;
+  RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+COMMENT ON FUNCTION public.handle_new_user() IS 'Creates a new user profile upon auth.users insertion.';
 
-COMMENT ON FUNCTION public.handle_new_user() IS 'Trigger function to create a user profile upon new auth.users signup. Attempts to generate a unique username.';
-
--- Trigger for new user signup
+-- Trigger to call handle_new_user when a new user is created in auth.users.
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Storage Bucket Information (Manual Setup in Supabase Dashboard)
---
--- 1. Pins Bucket:
---    - Name: `pins`
---    - Public: Yes (or set appropriate RLS policies on bucket/objects)
---    - RLS for Storage Objects (example):
---      - Allow authenticated users to upload into their own folder:
---        For INSERT: (bucket_id = 'pins' AND auth.uid() IS NOT NULL AND (storage.foldername(name))[1] = 'public' AND (storage.foldername(name))[2] = auth.uid()::text)
---        This policy assumes uploads go to `public/<user_id>/<filename>`. Adjust as needed.
---      - Allow public read access: (SELECT: true for all roles)
---
--- 2. Avatars Bucket:
---    - Name: `avatars`
---    - Public: Yes
---    - RLS for Storage Objects (example):
---      - Allow authenticated user to upload/update their own avatar:
---        For INSERT/UPDATE: (bucket_id = 'avatars' AND auth.uid() IS NOT NULL AND (storage.foldername(name))[1] = auth.uid()::text)
---        This policy assumes avatars are uploaded to `<user_id>/avatar.<ext>`. Adjust as needed.
---      - Allow public read access: (SELECT: true for all roles)
---
--- Note: The RLS policies for storage are examples. Review Supabase Storage documentation
--- for detailed policy creation that matches your exact access control requirements.
--- Ensure the file paths used in your application code match the paths enforced by these policies.
 
--- End of Schema Script
--- Apply this script in your Supabase SQL Editor.
--- Remember to also create the Storage Buckets (`pins` and `avatars`) via the Supabase Dashboard.
+-- Row Level Security (RLS) Policies for profiles table
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "Profiles are viewable by everyone."
+  ON public.profiles FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can insert their own profile."
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can update their own profile."
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can delete their own profile." -- Typically not recommended to allow direct delete
+  ON public.profiles FOR DELETE
+  USING (auth.uid() = id);
+
+-- Row Level Security (RLS) Policies for pins table
+ALTER TABLE public.pins ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Pins are viewable by everyone."
+  ON public.pins FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can insert their own pins."
+  ON public.pins FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND public.pins.user_id = auth.uid())));
+
+CREATE POLICY "Users can update their own pins."
+  ON public.pins FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND public.pins.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND public.pins.user_id = auth.uid()));
+
+CREATE POLICY "Users can delete their own pins."
+  ON public.pins FOR DELETE
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND public.pins.user_id = auth.uid()));
+
+
+-- Storage Bucket Policies (Example - apply these in Supabase dashboard Storage policies)
+-- These are illustrative. You'll need to set actual policies in the Supabase UI or via Management API.
+
+/*
+-- For 'pins' bucket:
+-- Policy: Allow public read access to all files
+CREATE POLICY "Public read access for pins"
+  ON storage.objects FOR SELECT
+  USING ( bucket_id = 'pins' );
+
+-- Policy: Allow authenticated users to upload to their own folder within 'pins' bucket
+-- Assumes files are stored like 'public/<user_id>/<filename>'
+CREATE POLICY "Authenticated users can upload pins"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK ( bucket_id = 'pins' AND auth.uid()::text = (storage.foldername(name))[1] );
+
+-- Policy: Allow users to delete their own pins
+CREATE POLICY "Users can delete their own pin images"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING ( bucket_id = 'pins' AND auth.uid()::text = (storage.foldername(name))[1] );
+
+
+-- For 'avatars' bucket:
+-- Policy: Allow public read access to all files
+CREATE POLICY "Public read access for avatars"
+  ON storage.objects FOR SELECT
+  USING ( bucket_id = 'avatars' );
+
+-- Policy: Allow authenticated users to upload/update their own avatar
+-- Assumes files are stored like '<user_id>/avatar.<ext>' or similar
+CREATE POLICY "Authenticated users can upload avatars"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK ( bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1] );
+
+CREATE POLICY "Users can update their own avatar images"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING ( bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1] );
+
+-- Policy: Allow users to delete their own avatar
+CREATE POLICY "Users can delete their own avatar images"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING ( bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1] );
+*/
+
+-- Grant usage on schema public to supabase_storage_admin
+-- This might be needed if storage policies refer to functions/tables in public schema
+GRANT USAGE ON SCHEMA public TO supabase_storage_admin;
+GRANT SELECT ON TABLE public.profiles TO supabase_storage_admin;
+
+
+-- After running this script, consider refreshing the Supabase schema cache:
+-- 1. Go to your Supabase Project Dashboard.
+-- 2. Navigate to API -> Click "Reload schema" button (or a similar option if UI changes).
+-- OR make a trivial schema change via the Supabase UI (e.g., add/remove a comment on a column) and save.
+--
+-- Also, regenerate your TypeScript types:
+-- npx supabase gen types typescript --project-id <your-project-id> --schema public > src/types/supabase.ts
+----------------------------------------------------------------------------------------------------
+-- Developer Note on handle_new_user trigger:
+-- The username generation logic in `handle_new_user` attempts to create a unique username.
+-- However, for absolute robustness in high-concurrency scenarios or with very common email prefixes,
+-- a more sophisticated unique username generation strategy might be needed if collisions become frequent.
+-- The current application logic in `src/app/settings/profile/page.tsx` which allows users to
+-- set/update their username (with uniqueness checks) acts as a crucial fallback and user-driven
+-- correction mechanism. If a default username is problematic, the user can change it.
+----------------------------------------------------------------------------------------------------

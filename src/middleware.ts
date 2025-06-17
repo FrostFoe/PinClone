@@ -1,3 +1,4 @@
+
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
@@ -17,7 +18,6 @@ export async function middleware(request: NextRequest) {
         "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your .env.local file (and for your deployment). " +
         "You MUST restart your Next.js development server after adding/changing .env.local.",
     );
-    // Return a basic error response, or handle more gracefully
     return new NextResponse(
       "Server configuration error: Supabase environment variables are missing. Please check server logs.",
       { status: 500 },
@@ -32,15 +32,12 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is set, update the request cookies (for Supabase client during this request)
-          // and response cookies (to send back to browser).
           request.cookies.set({ name, value, ...options });
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the request cookies and response cookies.
-          request.cookies.set({ name, value: "", ...options }); // Or request.cookies.delete(name, options) if preferred
-          response.cookies.set({ name, value: "", ...options }); // Or response.cookies.delete(name, options)
+          request.cookies.set({ name, value: "", ...options });
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     });
@@ -51,7 +48,7 @@ export async function middleware(request: NextRequest) {
       e.stack,
     );
     return new NextResponse(
-      "Server error: Could not initialize authentication service. Please check server logs.",
+      "Server error: Could not initialize authentication service in middleware. Please check server logs.",
       { status: 500 },
     );
   }
@@ -62,13 +59,13 @@ export async function middleware(request: NextRequest) {
     // This will also ensure the session is available for Server Components.
     await supabase.auth.getSession();
   } catch (e: any) {
-    console.error(
-      "CRITICAL MIDDLEWARE ERROR: Error during supabase.auth.getSession() in middleware.",
-      e.message,
-      e.stack,
+    // Log the error as a warning, but don't stop the request.
+    // Let the page-level components handle the absence of a session if this fails.
+    console.warn(
+      "Middleware Warning: Error during supabase.auth.getSession(). The request will proceed, but the session might not be immediately available server-side. This could be due to network issues or temporary Supabase unavailability.",
+      "Error message:",
+      (e as Error).message,
     );
-    // It's generally better to let the request proceed and let pages handle auth state,
-    // rather than returning a 500 here, unless getSession itself is critical for all paths.
   }
 
   return response;

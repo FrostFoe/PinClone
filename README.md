@@ -1,3 +1,4 @@
+
 # Pinclone with Firebase Studio & Supabase
 
 This is a Next.js starter project for Pinclone, integrated with Supabase for backend services.
@@ -9,12 +10,14 @@ This is a Next.js starter project for Pinclone, integrated with Supabase for bac
     - Create a Supabase project.
     - In the Supabase Dashboard, navigate to the SQL Editor.
     - Open the `sql/schema.sql` file from this project.
+    - **Important**: If you are running this on an existing database with previous Pinclone tables, the script includes `DROP TABLE IF EXISTS ... CASCADE;` commands. These will delete your existing `pins` and `profiles` tables and their data. Ensure you have backups if needed.
     - Copy its entire content and paste it into the Supabase SQL Editor.
-    - Run the script to create all necessary tables, indexes, and triggers.
+    - Run the script to create all necessary tables, indexes, RLS policies, and triggers.
     - **Storage Buckets**:
       - Go to Storage -> Create Bucket. Name it `pins`. Make it public or set appropriate access policies as suggested in the comments of `sql/schema.sql`.
       - Go to Storage -> Create Bucket. Name it `avatars`. Make it public or set appropriate access policies as suggested in the comments of `sql/schema.sql`.
     - Review and ensure Row Level Security (RLS) policies (defined in `sql/schema.sql`) are active for your tables.
+    - **Refresh Schema Cache**: After running the SQL script, it's a good practice to refresh Supabase's schema cache. You can often do this in the Supabase Dashboard (e.g., API section -> "Reload schema") or by making a minor, trivial change to a table via the UI (like adding/removing a column comment) and saving.
 
 2.  **Environment Variables:**
 
@@ -25,13 +28,19 @@ This is a Next.js starter project for Pinclone, integrated with Supabase for bac
       NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
       ```
 
-3.  **Install Dependencies:**
+3.  **Generate Supabase TypeScript Types (Recommended after schema changes):**
+    ```bash
+    npx supabase gen types typescript --project-id <your-project-id> --schema public > src/types/supabase.ts
+    ```
+    Replace `<your-project-id>` with your actual Supabase project ID. While types are included, regenerating them ensures they perfectly match your database schema.
+
+4.  **Install Dependencies:**
 
     ```bash
     npm install
     ```
 
-4.  **Run the Development Server:**
+5.  **Run the Development Server:**
     ```bash
     npm run dev
     ```
@@ -57,7 +66,7 @@ The complete database schema, including tables for `pins` and `profiles`, RLS po
 - **Pin Display**: Fetches and displays pins from Supabase on the homepage and individual pin pages.
 - **Create Pin**: Users can upload images and create new pins, saved to Supabase.
 - **User Profiles**: Fetches and displays user profile information. Profile editing page allows updates to Supabase, including avatar uploads.
-- **User Search**: Search for users by username or full name. (Pin search service exists, UI pending).
+- **User Search**: Search for users by username or full name. Pin search service also exists.
 - **Responsive Design**: Masonry layout for pins, mobile-friendly UI.
 - **Loading & Error States**: Skeletons, spinners, and toasts for better UX.
 
